@@ -1,0 +1,2239 @@
+classdef ResearchApp < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                       matlab.ui.Figure
+        EmbedMultipleButton            matlab.ui.control.Button
+        AnalyzeDecreasePercentsButton  matlab.ui.control.Button
+        StegoanalysisReadinessLamp     matlab.ui.control.Lamp
+        RunSteganoanalysisButton       matlab.ui.control.Button
+        Panel_3                        matlab.ui.container.Panel
+        GridLayout_3                   matlab.ui.container.GridLayout
+        AnalyzeFolderDecreasePercentsButton  matlab.ui.control.Button
+        DropDown                       matlab.ui.control.DropDown
+        ChooseFolderStegoaButton       matlab.ui.control.Button
+        ClearStegoanChoiceButton       matlab.ui.control.Button
+        ChooseSteganomessageButton     matlab.ui.control.Button
+        ChooseContainerButton          matlab.ui.control.Button
+        StegomessageLamp               matlab.ui.control.Lamp
+        ContainerLamp                  matlab.ui.control.Lamp
+        Panel_2                        matlab.ui.container.Panel
+        GridLayout_2                   matlab.ui.container.GridLayout
+        EmbedingPercentageEditField    matlab.ui.control.NumericEditField
+        EmbedInColorMatrixesEditField  matlab.ui.control.EditField
+        Label_9                        matlab.ui.control.Label
+        BandWidthEditField             matlab.ui.control.EditField
+        Label_8                        matlab.ui.control.Label
+        EditField_14Label_2            matlab.ui.control.Label
+        AmOfBitsOfAIEditField          matlab.ui.control.EditField
+        Label_6                        matlab.ui.control.Label
+        FileSizeEditFieldSteg          matlab.ui.control.EditField
+        EditField_7Label               matlab.ui.control.Label
+        ImageSizeEditFieldSteg         matlab.ui.control.EditField
+        EditField_5Label               matlab.ui.control.Label
+        Label_2                        matlab.ui.control.Label
+        Label                          matlab.ui.control.Label
+        OutputImage                    matlab.ui.control.Image
+        EmbedButton                    matlab.ui.control.Button
+        GetAIButton                    matlab.ui.control.Button
+        OpenFileButton                 matlab.ui.control.Button
+        InputImage                     matlab.ui.control.Image
+        Panel                          matlab.ui.container.Panel
+        GridLayout                     matlab.ui.container.GridLayout
+        FileExtensionEditField         matlab.ui.control.EditField
+        Label_5                        matlab.ui.control.Label
+        FileSizeEditField              matlab.ui.control.EditField
+        EditField_3Label               matlab.ui.control.Label
+        AmountOfBlocksForAIEditField   matlab.ui.control.EditField
+        Label_4                        matlab.ui.control.Label
+        ImageSizeEditField             matlab.ui.control.EditField
+        Label_3                        matlab.ui.control.Label
+        UIAxes                         matlab.ui.control.UIAxes
+    end
+
+    
+    properties (Access = private)
+        ImageSource % for images when .tif is used
+        StegoMessageSource %for stegoanalysis of output image
+        FalseNegatives
+        FalsePositives
+    end
+    
+    
+    methods (Access = public)
+        
+        function img = OpenImage(app)
+            [filename, path] = uigetfile ({'*.png;*.jpg;*.jpeg;*.tif', 'Image Files (*.png, *.jpg, *.jpeg, *.tif)'}, 'Select an Image File');
+            
+            % Check if the user clicked 'Cancel'
+            if isequal(filename,0) || isequal(path,0)
+                app.ImageSizeEditField.Value = 'User clicked Cancel';
+                return;
+            else
+                fullPath = fullfile(path, filename);
+                app.ImageSource = fullPath;
+            end
+
+            try
+                app.InputImage.ImageSource = fullPath;
+                img = imread(app.InputImage.ImageSource);
+            catch exception
+                app.InputImage.ImageSource = imread(fullPath);
+                img = imread(app.ImageSource);
+                %e = errordlg(['Error occurred: ', exception.message], "Error occured");%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %return;
+            end
+            if(size(img,3) == 4)
+                C = makecform('cmyk2srgb');
+                img = applycform(img,C);
+            end
+            img = double(img);
+
+            app.ImageSizeEditField.Value = GetImageSize(app, img);
+            app.AmountOfBlocksForAIEditField.Value = string(GetAmOfBlocks(app, img));
+            fileInfo = dir(fullPath);
+            app.FileSizeEditField.Value = string(fileInfo.bytes);
+            [~, ~, extension] = fileparts(fullPath);
+            app.FileExtensionEditField.Value = extension;
+            
+            app.ImageSizeEditField.Enable = "on";
+            app.AmountOfBlocksForAIEditField.Enable = "on";
+            app.FileSizeEditField.Enable = "on";
+            app.FileExtensionEditField.Enable = "on";
+
+            app.AmOfBitsOfAIEditField.Enable = "on";
+            app.AmOfBitsOfAIEditField.Editable = "on";
+            %app.AISequence.Enable = "on";
+            %app.AISequence.Editable = "on";
+        end
+
+
+        function img = OpenContainerImage(app)
+            [filename, path] = uigetfile ({'*.png;*.jpg;*.jpeg;*.tif', 'Image Files (*.png, *.jpg, *.jpeg, *.tif)'}, 'Select Container Image File');
+            
+            % Check if the user clicked 'Cancel'
+            if isequal(filename,0) || isequal(path,0)
+                app.FileSizeEditFieldStega.Value = 'User clicked Cancel';
+                return;
+            else
+                fullPath = fullfile(path, filename);
+                app.ImageSource = fullPath;
+            end
+
+            try
+                app.InputImage.ImageSource = fullPath;
+                img = imread(app.InputImage.ImageSource);
+            catch exception
+                app.InputImage.ImageSource = imread(fullPath);
+                img = imread(app.ImageSource);
+                %e = errordlg(['Error occurred: ', exception.message], "Error occured");%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %return;
+            end
+            if(size(img,3) == 4)
+                C = makecform('cmyk2srgb');
+                img = applycform(img,C);
+            end
+
+            img = double(img);
+
+            fileInfo = dir(fullPath);
+            %app.FileSizeEditFieldStega.Value = string(fileInfo.bytes);
+            [~, ~, extension] = fileparts(fullPath);
+            %app.FileExtensionEditFieldStega.Value = extension;
+            
+            %app.FileSizeEditFieldStega.Enable = "on";
+            %app.FileExtensionEditFieldStega.Enable = "on";    
+        end
+
+        function img = OpenStegoImage(app)
+            [filename, path] = uigetfile ({'*.png;*.jpg;*.jpeg;*.tif', 'Image Files (*.png, *.jpg, *.jpeg, *.tif)'}, 'Select Container Image File');
+            
+            % Check if the user clicked 'Cancel'
+            if isequal(filename,0) || isequal(path,0)
+                app.FileSizeEditFieldStega.Value = 'User clicked Cancel';
+                return;
+            else
+                fullPath = fullfile(path, filename);
+                app.StegoMessageSource = fullPath;
+            end
+
+            try
+                app.OutputImage.ImageSource = fullPath;
+                img = imread(app.OutputImage.ImageSource);
+            catch exception
+                app.OutputImage.ImageSource = imread(fullPath);
+                img = imread(app.StegoMessageSource);
+                %e = errordlg(['Error occurred: ', exception.message], "Error occured");%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %return;
+            end
+            if(size(img,3) == 4)
+                C = makecform('cmyk2srgb');
+                img = applycform(img,C);
+            end
+
+            img = double(img);
+
+            fileInfo = dir(fullPath);
+            %app.FileSizeEditFieldStega.Value = string(fileInfo.bytes);
+            [~, ~, extension] = fileparts(fullPath);
+            %app.FileExtensionEditFieldStega.Value = extension;
+            
+            %app.FileSizeEditFieldStega.Enable = "on";
+            %app.FileExtensionEditFieldStega.Enable = "on";    
+        end
+
+
+        function [saveSequencePath, saveImagePath] = EncodeOneImageResearch(app, numOfImage, path)
+            app.ImageSource = path;
+            img = imread(path);
+            img = double(img);
+            %N size of preprocessing imageblock 
+            N = 64;
+           
+            W_original = width(img);
+            H_original = height(img);
+            
+            %cutted image width&height
+            W_blocks = floor(W_original/N);
+            H_blocks = floor(H_original/N);
+            counter = 0;
+
+            colorsEmbed = app.EmbedInColorMatrixesEditField.Value;
+            colorsEmbed = strrep(colorsEmbed, 'r', '1');
+            colorsEmbed = strrep(colorsEmbed, 'g', '2');
+            colorsEmbed = strrep(colorsEmbed, 'b', '3');
+            colorsEmbed = char(colorsEmbed);
+
+            %getting blocks
+            %sequence = Equally_random_generator(127385, 16);
+            rng(123457); %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            try
+                l = str2double(app.AmOfBitsOfAIEditField.Value);
+            catch exception
+                er = errordlg(["Error: ", exception.message, "\nКількість біт додаткової інформації має вказуватися у вигляді цілого числа від 1 до 6."], "Кількість біт додаткової інформації має вказуватися цілими числами.");
+                return;
+            end
+            if(l < 1 || l > 6)
+                er = errordlg("Кількість біт додаткової інформації має не перевищувати 6 та бути більшою за 0.", "Кількість біт додаткової інформації вказано некоректно");
+                return;
+            end
+            
+            %we break image on blocks 64x64 and then change n percents of
+            %2x2 blocks in it
+            percentageEmbedding = app.EmbedingPercentageEditField.Value/100;
+            %sequenceLength = floor((N/2)^2 * percentageEmbedding)* W_blocks * H_blocks * length(colorsEmbed) - 5;
+            sequenceLength = floor((N/2) * percentageEmbedding)^2 * W_blocks * H_blocks * length(colorsEmbed);
+            if(str2double(app.AmOfBitsOfAIEditField.Value) == 1)
+                sequence = randi([0, (2^l)], 1, sequenceLength);
+            else
+                sequence = randi([0, (2^l) - 1], 1, sequenceLength);
+            end
+            
+            
+            if(size(img,3) == 3)
+                colorsEmbed = str2double(num2cell(colorsEmbed));
+                image = RGBImageEmbeddingResearch(app, img, H_blocks, W_blocks, sequence, l, colorsEmbed);                        
+                colorscheme = app.EmbedInColorMatrixesEditField.Value;
+            else
+                image = GrayImageEmbedding(app, img, H_blocks, W_blocks, sequence, l);
+                colorscheme = "gray";
+            end
+
+
+            
+            %image = img;
+            image = uint8(image);
+            [path, filename, extension]= fileparts(app.ImageSource);
+            %numOfImage = "0";
+            saveImagePath = SaveImage(app, image, numOfImage, l, path, colorscheme, extension); %string(join([path, "\", "EmbededImage.", extension], ""))
+            msgbox(string(join(["Image with embedded AI was saved: ", saveImagePath], "")), "File saved", "modal");
+            
+
+            tmpImage = imread(saveImagePath);
+            fileInfo = dir(saveImagePath);
+            app.FileSizeEditFieldSteg.Value = string(fileInfo.bytes);
+            app.ImageSizeEditFieldSteg.Value = GetImageSize(app, tmpImage);
+            app.FileSizeEditFieldSteg.Enable = "on";
+            app.FileSizeEditFieldSteg.Enable = "on";
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            saveSequencePath = SaveSequence(app, sequence, numOfImage, colorscheme, path);
+            %saveSequencePath = "disabled for optimization";
+            msgbox(string(join(["Sequence that was embedded was saved: ", string(join([path, "EmbedSequence.txt"], "\"))], "")), "Sequence-File saved", "modal");
+            originalImage = imread(app.ImageSource);
+            %x = psnr(originalImage, tmpImage);
+            %app.PSNREditFieldStega.Value = x;
+            app.OutputImage.ImageSource = image;
+        end
+
+        function [saveSequencePath, saveImagePath] = EncodeOneImageResearchMultiple(app, numOfImage, path)
+            app.ImageSource = path;
+            img = imread(path);
+            img = double(img);
+            %N size of preprocessing imageblock 
+            N = 64;
+           
+            W_original = width(img);
+            H_original = height(img);
+            
+            %cutted image width&height
+            W_blocks = floor(W_original/N);
+            H_blocks = floor(H_original/N);
+            counter = 0;
+
+            colorsEmbed = app.EmbedInColorMatrixesEditField.Value;
+            colorsEmbed = strrep(colorsEmbed, 'r', '1');
+            colorsEmbed = strrep(colorsEmbed, 'g', '2');
+            colorsEmbed = strrep(colorsEmbed, 'b', '3');
+            colorsEmbed = char(colorsEmbed);
+
+            %getting blocks
+            %sequence = Equally_random_generator(127385, 16);
+            rng(123457); %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            try
+                l = str2double(app.AmOfBitsOfAIEditField.Value);
+            catch exception
+                er = errordlg(["Error: ", exception.message, "\nКількість біт додаткової інформації має вказуватися у вигляді цілого числа від 1 до 6."], "Кількість біт додаткової інформації має вказуватися цілими числами.");
+                return;
+            end
+            if(l < 1 || l > 6)
+                er = errordlg("Кількість біт додаткової інформації має не перевищувати 6 та бути більшою за 0.", "Кількість біт додаткової інформації вказано некоректно");
+                return;
+            end
+            
+            %we break image on blocks 64x64 and then change n percents of
+            %2x2 blocks in it
+            percentageEmbedding = app.EmbedingPercentageEditField.Value/100;
+            %sequenceLength = floor((N/2)^2 * percentageEmbedding)* W_blocks * H_blocks * length(colorsEmbed) - 5;
+            sequenceLength = floor((N/2) * percentageEmbedding)^2 * W_blocks * H_blocks * length(colorsEmbed);
+            if(str2double(app.AmOfBitsOfAIEditField.Value) == 1)
+                sequence = randi([0, (2^l)], 1, sequenceLength);
+            else
+                sequence = randi([0, (2^l) - 1], 1, sequenceLength);
+            end
+            
+            
+            if(size(img,3) == 3)
+                colorsEmbed = str2double(num2cell(colorsEmbed));
+                image = RGBImageEmbeddingResearch(app, img, H_blocks, W_blocks, sequence, l, colorsEmbed);                        
+                colorscheme = app.EmbedInColorMatrixesEditField.Value;
+            else
+                image = GrayImageEmbedding(app, img, H_blocks, W_blocks, sequence, l);
+                colorscheme = "gray";
+            end
+
+
+            
+            %image = img;
+            image = uint8(image);
+            [path, filename, extension]= fileparts(app.ImageSource);
+            %numOfImage = "0";
+            saveImagePath = SaveImage(app, image, numOfImage, l, path, colorscheme, extension); %string(join([path, "\", "EmbededImage.", extension], ""))
+            msgbox(string(join(["Image with embedded AI was saved: ", saveImagePath], "")), "File saved", "modal");
+            
+
+            tmpImage = imread(saveImagePath);
+            fileInfo = dir(saveImagePath);
+            app.FileSizeEditFieldSteg.Value = string(fileInfo.bytes);
+            app.ImageSizeEditFieldSteg.Value = GetImageSize(app, tmpImage);
+            app.FileSizeEditFieldSteg.Enable = "on";
+            app.FileSizeEditFieldSteg.Enable = "on";
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %saveSequencePath = SaveSequence(app, sequence, numOfImage, colorscheme, path);
+            saveSequencePath = "disabled for optimization";
+            %msgbox(string(join(["Sequence that was embedded was saved: ", string(join([path, "EmbedSequence.txt"], "\"))], "")), "File saved", "modal");
+            originalImage = imread(app.ImageSource);
+            %x = psnr(originalImage, tmpImage);
+            %app.PSNREditFieldStega.Value = x;
+            app.OutputImage.ImageSource = image;
+        end
+
+
+
+
+
+        function [saveSequencePath, saveImagePath] = EncodeOneImageResearchTMP(app, numOfImage, path, percents)
+            app.ImageSource = path;
+            img = imread(path);
+            img = double(img);
+            %N size of preprocessing imageblock 
+            N = 64;
+           
+            W_original = width(img);
+            H_original = height(img);
+            
+            %cutted image width&height
+            W_blocks = floor(W_original/N);
+            H_blocks = floor(H_original/N);
+            counter = 0;
+
+            colorsEmbed = app.EmbedInColorMatrixesEditField.Value;
+            colorsEmbed = strrep(colorsEmbed, 'r', '1');
+            colorsEmbed = strrep(colorsEmbed, 'g', '2');
+            colorsEmbed = strrep(colorsEmbed, 'b', '3');
+            colorsEmbed = char(colorsEmbed);
+
+            %getting blocks
+            %sequence = Equally_random_generator(127385, 16);
+            rng(123457); %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            try
+                l = str2double(app.AmOfBitsOfAIEditField.Value);
+            catch exception
+                er = errordlg(["Error: ", exception.message, "\nКількість біт додаткової інформації має вказуватися у вигляді цілого числа від 1 до 6."], "Кількість біт додаткової інформації має вказуватися цілими числами.");
+                return;
+            end
+            if(l < 1 || l > 6)
+                er = errordlg("Кількість біт додаткової інформації має не перевищувати 6 та бути більшою за 0.", "Кількість біт додаткової інформації вказано некоректно");
+                return;
+            end
+            
+            %we break image on blocks 64x64 and then change n percents of
+            %2x2 blocks in it
+            percentageEmbedding = percents/100;
+            %sequenceLength = floor((N/2)^2 * percentageEmbedding)* W_blocks * H_blocks * length(colorsEmbed) - 5;
+            sequenceLength = floor((N/2) * percentageEmbedding)^2 * W_blocks * H_blocks * length(colorsEmbed);
+            if(str2double(app.AmOfBitsOfAIEditField.Value) == 1)
+                sequence = randi([0, (2^l)], 1, sequenceLength);
+            else
+                sequence = randi([0, (2^l) - 1], 1, sequenceLength);
+            end
+            
+            
+            if(size(img,3) == 3)
+                colorsEmbed = str2double(num2cell(colorsEmbed));
+                image = RGBImageEmbeddingResearchTMP(app, img, H_blocks, W_blocks, sequence, l, colorsEmbed, percents);                        
+                colorscheme = app.EmbedInColorMatrixesEditField.Value;
+            else
+                image = GrayImageEmbedding(app, img, H_blocks, W_blocks, sequence, l);
+                colorscheme = "gray";
+            end
+
+
+            
+            %image = img;
+            image = uint8(image);
+            [path, filename, extension]= fileparts(app.ImageSource);
+            %numOfImage = "0";
+            saveImagePath = SaveImageTMP(app, image, numOfImage, l, path, colorscheme, extension, percents); %string(join([path, "\", "EmbededImage.", extension], ""))
+            msgbox(string(join(["Image with embedded AI was saved: ", saveImagePath], "")), "File saved", "modal");
+            
+
+            tmpImage = imread(saveImagePath);
+            fileInfo = dir(saveImagePath);
+            app.FileSizeEditFieldSteg.Value = string(fileInfo.bytes);
+            app.ImageSizeEditFieldSteg.Value = GetImageSize(app, tmpImage);
+            app.FileSizeEditFieldSteg.Enable = "on";
+            app.FileSizeEditFieldSteg.Enable = "on";
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %saveSequencePath = SaveSequence(app, sequence, numOfImage, colorscheme, path);
+            saveSequencePath = "disabled for optimization";
+            %msgbox(string(join(["Sequence that was embedded was saved: ", string(join([path, "EmbedSequence.txt"], "\"))], "")), "File saved", "modal");
+            originalImage = imread(app.ImageSource);
+            %x = psnr(originalImage, tmpImage);
+            %app.PSNREditFieldStega.Value = x;
+            app.OutputImage.ImageSource = image;
+        end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        function DecodeOneImageResearch(app, img, path)
+            img = double(img);
+            decoded_sequence = [];
+            %N size of preprocessing imageblock 
+            N = 64;
+            try
+                l = str2double(app.AmOfBitsOfAIEditField.Value);
+            catch exception
+                er = errordlg(["Error: ", exception.message, "\nКількість біт додаткової інформації має вказуватися у вигляді цілого числа від 1 до 6."], "Кількість біт додаткової інформації має вказуватися цілими числами.");
+                return;
+            end
+            if(l < 1 || l > 6)
+                er = errordlg("Кількість біт додаткової інформації має не перевищувати 6 та бути більшою за 0.", "Кількість біт додаткової інформації вказано некоректно");
+                return;
+            end
+            
+            W_original = width(img);
+            H_original = height(img);
+            
+            %cutted image width&height
+            W_blocks = floor(W_original/N);
+            H_blocks = floor(H_original/N);
+
+            colorsEmbed = app.EmbedInColorMatrixesEditField.Value;
+            colorsEmbed = strrep(colorsEmbed, 'r', '1');
+            colorsEmbed = strrep(colorsEmbed, 'g', '2');
+            colorsEmbed = strrep(colorsEmbed, 'b', '3');
+            colorsEmbed = char(colorsEmbed);
+            colorsEmbed = str2double(num2cell(colorsEmbed));
+
+
+            if(size(img, 3) == 3)
+                for x = 1:length(colorsEmbed)
+                    rgb = colorsEmbed(x);
+                    %getting blocks
+                    for i=1:H_blocks
+                        for j=1:W_blocks
+                            img_block = img((i*N+1)-N : (i*N), (j*N+1)-N : (j*N), rgb);
+                            
+                            %step3
+                            Bf = fft2(img_block);
+                            
+                            %step4
+                            d_ = abs(Bf(1,2)-Bf(2,1));
+                    
+                            %step5
+                            if(d_ >= (floor(d_/2^(l+1)) * 2^(l+1)))
+                                b_ = (d_ - floor(d_/2^(l+1)) * 2^(l+1)) / 2;
+                            else
+                                b_ = d_/2;
+                            end
+                    
+                            %steps 6,7 to be added.
+                            decoded_sequence(end+1) = b_;
+                        end
+                    end
+                end
+            else
+                for i=1:H_blocks
+                    for j=1:W_blocks
+                        img_block = img((i*N+1)-N : (i*N), (j*N+1)-N : (j*N));
+                        
+                        %step3
+                        Bf = fft2(img_block);
+                        
+                        %step4
+                        d_ = abs(Bf(1,2)-Bf(2,1));
+                
+                        %step5
+                        if(d_ >= (floor(d_/2^(l+1)) * 2^(l+1)))
+                            b_ = (d_ - floor(d_/2^(l+1)) * 2^(l+1)) / 2;
+                        else
+                            b_ = d_/2;
+                        end
+                
+                        %steps 6,7 to be added.
+                        decoded_sequence(end+1) = b_;
+                    end
+                end
+            end
+            readSequence = ReadSequence(app, path);
+            errorsCounter = 0;
+            for i=1:length(decoded_sequence)
+                if(readSequence(i) ~= decoded_sequence(i))
+                    errorsCounter = errorsCounter + 1;
+                end
+            end
+            msgbox(string(join(["Errors during check of sequence result: ", string(errorsCounter), "."], "")), "Check of the embedded and decoded sequences.")
+            %path_ = fileparts(path);
+            %[~, filename, ~] = fileparts(path);
+            %file = fopen([path, filename])
+        end
+
+
+        function imagesFilesList = GetImagesPaths(app)
+            folder = uigetdir("C:\Users\bro38\OneDrive\Документы\MATLAB", "Choose directory with images.");
+            dirData = dir(folder);
+            imagesFilesList = string([]);
+            for i=1:length(dirData)
+                if(endsWith(dirData(i).name, '.tif', 'IgnoreCase', true) || endsWith(dirData(i).name, '.png', 'IgnoreCase', true) || endsWith(dirData(i).name, '.bmp', 'IgnoreCase', true))
+                    imagesFilesList(end+1) = string(join([dirData(i).folder, "\", dirData(i).name], ""));
+                end
+            end
+            disp(imagesFilesList)
+        end
+        
+        function GetAmountOfFalseNegativesNPositives(app, containerPath, stegomessagePath)
+            %do steganoanalysis
+            %do check if steganoanalysis algorithm worked fine
+        end
+        
+        
+        function savePath = SaveImage(app, image, numOfImage, l, path, colorscheme, extension)
+            savePath = string(join([path, "\builtin_image ", numOfImage," l is ", l, " " colorscheme, " ", app.EmbedingPercentageEditField.Value, " percentsEmbeded" extension], ""));
+            %tmp = extension(2:end);
+            %imwrite(image, savePath, extension(2:end));
+            imwrite(image, savePath);
+        end
+
+        function savePath = SaveImageTMP(app, image, numOfImage, l, path, colorscheme, extension, percents)
+            savePath = string(join([path, "\ClearToEmbeded300 l=4 r g b\Stego ", string(percents), "\builtin_image ", numOfImage," l is ", l, " " colorscheme, " ", percents, " percentsEmbeded" extension], ""));
+            %tmp = extension(2:end);
+            %imwrite(image, savePath, extension(2:end));
+            imwrite(image, savePath);
+        end
+
+        function savePath = SaveSequence(app, sequence, numOfImage, colorscheme, path)
+            savePath = string(join([path, "\EmbedSequence", numOfImage, colorscheme, ".txt"], ""));
+            file = fopen(savePath, "w");
+            for i = 1 : length(sequence)
+                fprintf(file, '%u ', sequence(i));
+            end
+            fclose(file);
+        end
+
+        function readSequence = ReadSequence(app, path)
+            file = fopen(path, "r");
+            readSequence = fscanf(file, "%u");
+            fclose(file);
+        end
+        
+%         function saveSequenceName = GenerateNameOfSaveSequence(app, path)%%%%%%%%%%%%%%%%%%???????????????????????
+%             [~, filename, ext] = fileparts(path);
+%             matchesNumOfImg = regexp(filename, 'builtin_image(\d+)', 'tokens');
+%             matchesL = regexp([filename, ext], '\d+(?=\.\D*$)', 'match');
+%             numOfImage = matchesNumOfImg{1}{1};
+%             l = matchesL{1}{1};
+%             [path, "builtin_image", numOfImage," l is ", l, ".tif"]
+%         end
+%         
+
+        function image = GrayImageEmbedding(app, img, H_blocks, W_blocks, sequence, l)
+            counter = 0;
+            N = 2;
+            percentageOfEmbedPerBlock = app.EmbedingPercentageEditField.Value/100;
+            blocksByPercents = floor(64/N*percentageOfEmbedPerBlock);
+            for i=1:H_blocks
+                for j=1:W_blocks
+                    img_block64 = img((i*64+1)-64 : (i*64), (j*64+1)-64 : (j*64));
+                    %for k=1:floor(floor(8*8*percentageOfEmbedPerBlock)/N)
+                    for k=1:blocksByPercents
+                        %for r=1:floor(floor(8*8*percentageOfEmbedPerBlock)/N)
+                        for r=1:blocksByPercents
+                            if (counter ~= length(sequence))
+                                counter = counter + 1;
+                            else
+                                break;
+                            end
+                            img_block = img_block64((k*N+1)-N : (k*N), (r*N+1)-N : (r*N));
+                            Bf = fft2(img_block);
+                            
+                            b = sequence(counter);
+                            if (l==0)
+                                l = 4;
+                            end
+                            d = abs(Bf(1,2) - Bf(2,1));
+                            
+                            b_ = 2*b + floor(d/2^(l+1)) * 2^(l+1);
+                            
+                            if(abs(b_ - d)<abs(2*b - d))
+                                b = b_;
+                            else
+                                b = 2*b;
+                            end
+                            
+                            m = abs(b-d);
+                            if(Bf(1,2) >= Bf(2,1) && b > d)
+                                Bf(1,2) = Bf(1,2) + ceil(m/2);
+                                Bf(2,1) = Bf(2,1) - floor(m/2);
+                            elseif (Bf(1,2) < Bf(2,1) && b > d)
+                                Bf(1,2) = Bf(1,2) - floor(m/2);
+                                Bf(2,1) = Bf(2,1) + ceil(m/2);
+                            elseif (Bf(1,2) >= Bf(2,1) && b <= d)
+                                Bf(1,2) = Bf(1,2) - ceil(m/2);
+                                Bf(2,1) = Bf(2,1) + floor(m/2);
+                            elseif (Bf(1,2) < Bf(2,1) && b <= d)
+                                Bf(1,2) = Bf(1,2) + ceil(m/2);
+                                Bf(2,1) = Bf(2,1) - floor(m/2);
+                            end
+                   
+                            B_ = ifft2(Bf);
+                            
+                            %save changed block in img
+                            img_block64((k*N+1)-N : (k*N), (r*N+1)-N : (r*N)) = B_;
+                            %img_block64((k*N+1)-N : (k*N), (r*N+1)-N : (r*N)) = 0;
+                        end
+                    end
+                    img((i*64+1)-64 : (i*64), (j*64+1)-64 : (j*64)) = img_block64;
+                end
+            end
+            image = img;
+        end
+        
+        
+        function image = RGBImageEmbeddingResearch(app, img, H_blocks, W_blocks, sequence, l, colorsEmbed)
+            counter = 0;
+            N = 2;
+            percentageOfEmbedPerBlock = app.EmbedingPercentageEditField.Value/100;
+            blocksByPercents = floor(64/N*percentageOfEmbedPerBlock);
+            for x=1:length(colorsEmbed)
+                rgb = colorsEmbed(x);
+                for i=1:H_blocks
+                    for j=1:W_blocks
+                        img_block64 = img((i*64+1)-64 : (i*64), (j*64+1)-64 : (j*64), rgb);
+                        for k=1:blocksByPercents
+                            for r=1:blocksByPercents
+                                if (counter ~= length(sequence))
+                                    counter = counter + 1;
+                                else
+                                    break;
+                                end
+                                img_block = img_block64((k*N+1)-N : (k*N), (r*N+1)-N : (r*N));
+                                %step4
+                                Bf = fft2(img_block);
+                                
+                                b = sequence(counter);
+                                if (l==0)
+                                    l = 4;
+                                end
+                                d = abs(Bf(1,2) - Bf(2,1));
+                                
+                                b_ = 2*b + floor(d/2^(l+1)) * 2^(l+1);
+                                
+                                if(abs(b_ - d)<abs(2*b - d))
+                                    b = b_;
+                                else
+                                    b = 2*b;
+                                end
+                                
+                                m = abs(b-d);
+                                if(Bf(1,2) >= Bf(2,1) && b > d)
+                                    Bf(1,2) = Bf(1,2) + ceil(m/2);
+                                    Bf(2,1) = Bf(2,1) - floor(m/2);
+                                elseif (Bf(1,2) < Bf(2,1) && b > d)
+                                    Bf(1,2) = Bf(1,2) - floor(m/2);
+                                    Bf(2,1) = Bf(2,1) + ceil(m/2);
+                                elseif (Bf(1,2) >= Bf(2,1) && b <= d)
+                                    Bf(1,2) = Bf(1,2) - ceil(m/2);
+                                    Bf(2,1) = Bf(2,1) + floor(m/2);
+                                elseif (Bf(1,2) < Bf(2,1) && b <= d)
+                                    Bf(1,2) = Bf(1,2) + ceil(m/2);
+                                    Bf(2,1) = Bf(2,1) - floor(m/2);
+                                end
+                       
+                                B_ = ifft2(Bf);
+                                
+                                %save changed block in img
+                                img_block64((k*N+1)-N : (k*N), (r*N+1)-N : (r*N)) = B_;
+                                %img_block64((k*N+1)-N : (k*N), (r*N+1)-N : (r*N)) = 0;
+                            end
+                        end
+                        img((i*64+1)-64 : (i*64), (j*64+1)-64 : (j*64), rgb) = img_block64;
+                    end
+                end
+            end
+            image = img;
+        end
+
+
+
+        function image = RGBImageEmbeddingResearchTMP(app, img, H_blocks, W_blocks, sequence, l, colorsEmbed, percents)
+            counter = 0;
+            N = 2;
+            percentageOfEmbedPerBlock = percents/100;
+            blocksByPercents = floor(64/N*percentageOfEmbedPerBlock);
+            for x=1:length(colorsEmbed)
+                rgb = colorsEmbed(x);
+                for i=1:H_blocks
+                    for j=1:W_blocks
+                        img_block64 = img((i*64+1)-64 : (i*64), (j*64+1)-64 : (j*64), rgb);
+                        for k=1:blocksByPercents
+                            for r=1:blocksByPercents
+                                if (counter ~= length(sequence))
+                                    counter = counter + 1;
+                                else
+                                    break;
+                                end
+                                img_block = img_block64((k*N+1)-N : (k*N), (r*N+1)-N : (r*N));
+                                %step4
+                                Bf = fft2(img_block);
+                                
+                                b = sequence(counter);
+                                if (l==0)
+                                    l = 4;
+                                end
+                                d = abs(Bf(1,2) - Bf(2,1));
+                                
+                                b_ = 2*b + floor(d/2^(l+1)) * 2^(l+1);
+                                
+                                if(abs(b_ - d)<abs(2*b - d))
+                                    b = b_;
+                                else
+                                    b = 2*b;
+                                end
+                                
+                                m = abs(b-d);
+                                if(Bf(1,2) >= Bf(2,1) && b > d)
+                                    Bf(1,2) = Bf(1,2) + ceil(m/2);
+                                    Bf(2,1) = Bf(2,1) - floor(m/2);
+                                elseif (Bf(1,2) < Bf(2,1) && b > d)
+                                    Bf(1,2) = Bf(1,2) - floor(m/2);
+                                    Bf(2,1) = Bf(2,1) + ceil(m/2);
+                                elseif (Bf(1,2) >= Bf(2,1) && b <= d)
+                                    Bf(1,2) = Bf(1,2) - ceil(m/2);
+                                    Bf(2,1) = Bf(2,1) + floor(m/2);
+                                elseif (Bf(1,2) < Bf(2,1) && b <= d)
+                                    Bf(1,2) = Bf(1,2) + ceil(m/2);
+                                    Bf(2,1) = Bf(2,1) - floor(m/2);
+                                end
+                       
+                                B_ = ifft2(Bf);
+                                
+                                %save changed block in img
+                                img_block64((k*N+1)-N : (k*N), (r*N+1)-N : (r*N)) = B_;
+                                %img_block64((k*N+1)-N : (k*N), (r*N+1)-N : (r*N)) = 0;
+                            end
+                        end
+                        img((i*64+1)-64 : (i*64), (j*64+1)-64 : (j*64), rgb) = img_block64;
+                    end
+                end
+            end
+            image = img;
+        end
+
+
+
+
+
+
+
+        function CheckDifferenceAbsesOfBothImages(app)
+            clearImg = double(imread(app.ImageSource));
+            stegomessage = double(imread(app.StegoMessageSource));
+
+            if(size(clearImg, 3) ~= size(stegomessage, 3))
+                er = errordlg(["Images don`t have the same colourscheme"], "Incompatability error");
+                return;
+            elseif(size(clearImg, 3) == size(stegomessage, 3) && size(clearImg,3) == 3)
+                [ClearStegoPBDiff, ClearStegoCoefDiff] = StatisticsFor2Images(app, clearImg, stegomessage, 4, true);
+            elseif(size(clearImg, 3) == size(stegomessage, 3) && size(clearImg,3) == 4)
+                C = makecform('cmyk2srgb');
+                clearImg = applycform(clearImg,C);
+                stegomessage = applycform(stegomessage,C);
+                [ClearStegoPBDiff, ClearStegoCoefDiff] = StatisticsFor2Images(app, clearImg, stegomessage, 4, true);
+            else
+                [ClearStegoPBDiff, ClearStegoCoefDiff] = StatisticsFor2Images(app, clearImg, stegomessage, 1, false);
+            end
+            
+            MakeHisto(app, ClearStegoPBDiff, "Гістограма модулів різниць яскравості пікселів елементів 1.2 та 2.1 блоку 2х2", 2, 1)
+            MakeHisto(app, ClearStegoCoefDiff, "Гістограма модулів різниць коефіцієнтів швидкого перетворення Фур'є елементів 1.2 та 2.1 блоку 2х2", 2, 2)
+        end
+        
+        function [ClearStegoPBDiff, ClearStegoCoefDiff] = StatisticsFor2Images(app, clearImg, stegomessage, colourscheme, rgbMode)
+            clearAbsPixelBrightnessDifference = [];
+            stegomessageAbsPixelBrightnessDifference = [];
+            clearAbsFFT2CoefDifference = [];
+            stegomessageAbsFFT2CoefDifference = [];
+        
+            ClearStegoPBDiff = [];
+            ClearStegoCoefDiff = [];
+                
+            N = 2;
+
+            W_blocks = floor(width(stegomessage)/N);
+            H_blocks = floor(height(stegomessage)/N);
+            if(colourscheme == 1 && ~rgbMode)
+                for i = 1:H_blocks
+                    for j = 1:W_blocks
+                        img_block = clearImg((i*N+1)-N : (i*N), (j*N+1)-N : (j*N));
+                        clearAbsPixelBrightnessDifference(end+1) = abs(img_block(1,2) - img_block(2,1));
+                        fft2Block = fft2(img_block);
+                        clearAbsFFT2CoefDifference(end+1) = abs(fft2Block(1,2) - fft2Block(2,1));
+            
+                        img_block2 = stegomessage((i*N+1)-N : (i*N), (j*N+1)-N : (j*N));
+                        stegomessageAbsPixelBrightnessDifference(end+1) = abs(img_block2(1,2) - img_block2(2,1));
+                        fft2Block2 = fft2(img_block2);
+                        stegomessageAbsFFT2CoefDifference(end+1) = abs(fft2Block2(1,2) - fft2Block2(2,1));
+            
+                        ClearStegoPBDiff(end+1) = clearAbsPixelBrightnessDifference(end);
+                        ClearStegoPBDiff(end+1) = stegomessageAbsPixelBrightnessDifference(end);
+            
+                        ClearStegoCoefDiff(end+1) = clearAbsFFT2CoefDifference(end);
+                        ClearStegoCoefDiff(end+1) = stegomessageAbsFFT2CoefDifference(end);
+                    end
+                end
+            elseif(colourscheme == 4 && rgbMode)
+                for rgb = 1:3
+                    for i = 1:H_blocks
+                        for j = 1:W_blocks
+                            img_block = clearImg((i*N+1)-N : (i*N), (j*N+1)-N : (j*N), rgb);
+                            clearAbsPixelBrightnessDifference(end+1) = abs(img_block(1,2) - img_block(2,1));
+                            fft2Block = fft2(img_block);
+                            clearAbsFFT2CoefDifference(end+1) = abs(fft2Block(1,2) - fft2Block(2,1));
+                
+                            img_block2 = stegomessage((i*N+1)-N : (i*N), (j*N+1)-N : (j*N), rgb);
+                            stegomessageAbsPixelBrightnessDifference(end+1) = abs(img_block2(1,2) - img_block2(2,1));
+                            fft2Block2 = fft2(img_block2);
+                            stegomessageAbsFFT2CoefDifference(end+1) = abs(fft2Block2(1,2) - fft2Block2(2,1));
+                
+                            ClearStegoPBDiff(end+1) = clearAbsPixelBrightnessDifference(end);
+                            ClearStegoPBDiff(end+1) = stegomessageAbsPixelBrightnessDifference(end);
+                
+                            ClearStegoCoefDiff(end+1) = clearAbsFFT2CoefDifference(end);
+                            ClearStegoCoefDiff(end+1) = stegomessageAbsFFT2CoefDifference(end);
+                        end
+                    end
+                end
+            elseif(rgbMode)
+                for i = 1:H_blocks
+                    for j = 1:W_blocks
+                        img_block = clearImg((i*N+1)-N : (i*N), (j*N+1)-N : (j*N), colourscheme);
+                        clearAbsPixelBrightnessDifference(end+1) = abs(img_block(1,2) - img_block(2,1));
+                        fft2Block = fft2(img_block);
+                        clearAbsFFT2CoefDifference(end+1) = abs(fft2Block(1,2) - fft2Block(2,1));
+            
+                        img_block2 = stegomessage((i*N+1)-N : (i*N), (j*N+1)-N : (j*N), colourscheme);
+                        stegomessageAbsPixelBrightnessDifference(end+1) = abs(img_block2(1,2) - img_block2(2,1));
+                        fft2Block2 = fft2(img_block2);
+                        stegomessageAbsFFT2CoefDifference(end+1) = abs(fft2Block2(1,2) - fft2Block2(2,1));
+            
+                        ClearStegoPBDiff(end+1) = clearAbsPixelBrightnessDifference(end);
+                        ClearStegoPBDiff(end+1) = stegomessageAbsPixelBrightnessDifference(end);
+            
+                        ClearStegoCoefDiff(end+1) = clearAbsFFT2CoefDifference(end);
+                        ClearStegoCoefDiff(end+1) = stegomessageAbsFFT2CoefDifference(end);
+                    end
+                end
+            end
+        end
+        
+        function MakeHisto(app, ClearStegoDiff, text, amount, mode)
+            if(amount == 2)
+                figur = figure('Name', text); %"Гістограма модулів різниць коефіцієнтів швидкого перетворення Фур`є"
+                Clear = ClearStegoDiff(1:2:end);
+                Stego = ClearStegoDiff(2:2:end);
+                
+                %ClearCD_edge, ClearCD_count
+                Clear_edge = [];
+                Clear_count = [];
+                
+                for i = 1:numel(Clear)
+                    if(~ismember(Clear(i), Clear_edge))
+                        Clear_edge(end+1) = Clear(i);
+                        Clear_count(end+1) = sum(Clear == Clear_edge(end));
+                    end
+                end
+            
+                Stego_edge = [];
+                Stego_count = [];
+                
+                for i = 1:numel(Stego)
+                    if(~ismember(Stego(i), Stego_edge))
+                        Stego_edge(end+1) = Stego(i);
+                        Stego_count(end+1) = sum(Stego == Stego_edge(end));
+                    end
+                end
+            
+                hold on
+                bar(Clear_edge, Clear_count, 'FaceColor', 'blue', 'EdgeColor', 'none', 'FaceAlpha', 0.5)
+                bar(Stego_edge, Stego_count, 'FaceColor', 'red', 'EdgeColor', 'none', 'FaceAlpha', 0.5)
+                hold off
+            
+                xlabel('Значення');
+                ylabel('Частота зустрічання');
+                title('Графік з двома групами');
+                legend('Clear', 'Stego');
+
+
+            elseif(amount == 1)
+                figur = figure('Name', text); %"Гістограма модулів різниць коефіцієнтів швидкого перетворення Фур`є"
+                Indefinite = ClearStegoDiff;
+                
+                %ClearCD_edge, ClearCD_count
+                Indefinite_edge = [];
+                Indefinite_count = [];
+                
+                for i = 1:numel(Indefinite)
+                    if(~ismember(Indefinite(i), Indefinite_edge))
+                        Indefinite_edge(end+1) = Indefinite(i);
+                        Indefinite_count(end+1) = sum(Indefinite == Indefinite_edge(end));
+                    end
+                end
+                
+                %[maxNumber, maxIndex] = max(Indefinite_count);
+                %potential_l = log2(Indefinite_edge(maxIndex)/2 + 1);
+                if(mode==2)
+                    %if(potential_l == 2 || potential_l == 3 || potential_l == 4 || potential_l == 5 || potential_l == 6)
+                        %bar(Indefinite_edge, Indefinite_count, 'FaceColor', 'red', 'EdgeColor', 'none', 'FaceAlpha', 0.5)
+                        %title(string(join(['Графік модулів різниць коефіцієнтів зображення з вбудованою ДІ, де l ймовірно дорівнює ', string(potential_l)], "")));
+                        %legend('Steganography detected');
+%                     elseif(potential_l == 1)
+%                         bar(Indefinite_edge, Indefinite_count, 'FaceColor', 'red', 'EdgeColor', 'none', 'FaceAlpha', 0.5)
+%                         title('Графік модулів різниць коефіцієнтів  зображення зі скоріше за все вбудованою ДІ, де l ймовірно дорівнює 1');
+%                         legend('Steganography detected');
+                    %else
+                        %bar(Indefinite_edge, Indefinite_count, 'FaceColor', 'blue', 'EdgeColor', 'none', 'FaceAlpha', 0.5)
+                        %title('Графік модулів різниць коефіцієнтів зображення, яке не має вбудови ДІ');
+                        %legend('No steganography');
+                    %end
+                    bar(Indefinite_edge, Indefinite_count, 'FaceColor', 'blue', 'EdgeColor', 'none', 'FaceAlpha', 0.5)
+                    title(text);
+                    legend('Illustrative');
+                else
+                    bar(Indefinite_edge, Indefinite_count, 'FaceColor', 'blue', 'EdgeColor', 'none', 'FaceAlpha', 0.5)
+                    title(text);
+                    legend('Illustrative');
+                end
+
+                xlabel('Значення');
+                ylabel('Частота зустрічання');
+            end
+        end
+        
+        
+        function CheckDifferenceAbsesOfOneImage(app)
+            try
+                clearImg = double(imread(app.ImageSource));
+            catch
+                clearImg = double(imread(app.StegoMessageSource));
+            end
+
+            if(size(clearImg, 3) == 3)
+                [ClearStegoPBDiff, ClearStegoCoefDiff] = StatisticsFor1Image(app, clearImg, 4, true);
+            elseif(size(clearImg, 3) == 4)
+                C = makecform('cmyk2srgb');
+                clearImg = applycform(clearImg,C);
+                [ClearStegoPBDiff, ClearStegoCoefDiff] = StatisticsFor1Image(app, clearImg, 4, true);
+            else
+                [ClearStegoPBDiff, ClearStegoCoefDiff] = StatisticsFor1Image(app, clearImg, 1, false);
+            end
+            
+            MakeHisto(app, ClearStegoPBDiff, "Гістограма модулів різниць яскравості пікселів елементів 1.2 та 2.1 блоку 2х2", 1, 1)
+            MakeHisto(app, ClearStegoCoefDiff, "Гістограма модулів різниць коефіцієнтів швидкого перетворення Фур'є елементів 1.2 та 2.1 блоку 2х2", 1, 2)
+        end
+
+        function [ClearStegoPBDiff, ClearStegoCoefDiff] = StatisticsFor1Image(app, clearImg, colourscheme, rgbMode)
+            ClearStegoPBDiff = [];
+            ClearStegoCoefDiff = [];
+                
+            N = 2;
+
+            W_blocks = floor(width(clearImg)/N);
+            H_blocks = floor(height(clearImg)/N);
+
+            colorsEmbed = app.EmbedInColorMatrixesEditField.Value;
+            colorsEmbed = strrep(colorsEmbed, 'r', '1');
+            colorsEmbed = strrep(colorsEmbed, 'g', '2');
+            colorsEmbed = strrep(colorsEmbed, 'b', '3');
+            colorsEmbed = str2double(num2cell(char(colorsEmbed)));
+            if(colourscheme == 1)
+                for i = 1:H_blocks
+                    for j = 1:W_blocks
+                        img_block = clearImg((i*N+1)-N : (i*N), (j*N+1)-N : (j*N));
+                        ClearStegoPBDiff(end+1) = abs(img_block(1,2) - img_block(2,1));
+                        fft2Block = fft2(img_block);
+                        ClearStegoCoefDiff(end+1) = abs(fft2Block(1,2) - fft2Block(2,1));
+                    end
+                end
+            else
+                for x = 1:length(colorsEmbed)
+                    rgb = colorsEmbed(x);
+                    for i = 1:H_blocks
+                        for j = 1:W_blocks
+                            img_block = clearImg((i*N+1)-N : (i*N), (j*N+1)-N : (j*N),rgb);
+                            ClearStegoPBDiff(end+1) = abs(img_block(1,2) - img_block(2,1));
+                            fft2Block = fft2(img_block);
+                            ClearStegoCoefDiff(end+1) = abs(fft2Block(1,2) - fft2Block(2,1));
+                        end
+                    end
+                end
+            end
+        end
+
+        function [ClearStegoPBDiff] = StatisticsFor1ImagePB(app, clearImg, colourscheme, rgbMode)
+            ClearStegoPBDiff = [];
+                            
+            N = 2;
+
+            W_blocks = floor(width(clearImg)/N);
+            H_blocks = floor(height(clearImg)/N);
+            
+            colorsEmbed = app.EmbedInColorMatrixesEditField.Value;
+            colorsEmbed = strrep(colorsEmbed, 'r', '1');
+            colorsEmbed = strrep(colorsEmbed, 'g', '2');
+            colorsEmbed = strrep(colorsEmbed, 'b', '3');
+            colorsEmbed = str2double(num2cell(char(colorsEmbed)));
+
+
+
+
+            if(colourscheme == 1)
+                for i = 1:H_blocks
+                    for j = 1:W_blocks
+                        img_block = clearImg((i*N+1)-N : (i*N), (j*N+1)-N : (j*N));
+                        ClearStegoPBDiff(end+1) = abs(img_block(1,2) - img_block(2,1));
+                    end
+                end
+            else
+                for x = 1:length(colorsEmbed)
+                    rgb = colorsEmbed(x);
+                    for i = 1:H_blocks
+                        for j = 1:W_blocks
+                            img_block = clearImg((i*N+1)-N : (i*N), (j*N+1)-N : (j*N),rgb);
+                            ClearStegoPBDiff(end+1) = abs(img_block(1,2) - img_block(2,1));
+                        end
+                    end
+                end
+            end
+        end
+
+        function [ClearStegoCoefDiff] = StatisticsFor1ImageCoef(app, clearImg, colourscheme, rgbMode)
+            ClearStegoCoefDiff = [];
+                
+            N = 2;
+
+            W_blocks = floor(width(clearImg)/N);
+            H_blocks = floor(height(clearImg)/N);
+
+            colorsEmbed = app.EmbedInColorMatrixesEditField.Value;
+            colorsEmbed = strrep(colorsEmbed, 'r', '1');
+            colorsEmbed = strrep(colorsEmbed, 'g', '2');
+            colorsEmbed = strrep(colorsEmbed, 'b', '3');
+            colorsEmbed = str2double(num2cell(char(colorsEmbed)));
+            if(colourscheme == 1)
+                for i = 1:H_blocks
+                    for j = 1:W_blocks
+                        img_block = clearImg((i*N+1)-N : (i*N), (j*N+1)-N : (j*N));
+                        fft2Block = fft2(img_block);
+                        ClearStegoCoefDiff(end+1) = abs(fft2Block(1,2) - fft2Block(2,1));
+                    end
+                end
+            else
+                for x = 1:length(colorsEmbed)
+                    rgb = colorsEmbed(x);
+                    for i = 1:H_blocks
+                        for j = 1:W_blocks
+                            img_block = clearImg((i*N+1)-N : (i*N), (j*N+1)-N : (j*N),rgb);
+                            fft2Block = fft2(img_block);
+                            ClearStegoCoefDiff(end+1) = abs(fft2Block(1,2) - fft2Block(2,1));
+                        end
+                    end
+                end
+            end
+        end
+
+        function [ClearStegoPBDiff] = StatisticsFor1ImagePBForMatrix(app, clearImg, colourscheme, rgbMode, Matrix)
+            ClearStegoPBDiff = [;];
+                            
+            N = 2;
+
+            W_blocks = floor(width(clearImg)/N);
+            H_blocks = floor(height(clearImg)/N);
+
+            colorsEmbed = app.EmbedInColorMatrixesEditField.Value;
+            colorsEmbed = strrep(colorsEmbed, 'r', '1');
+            colorsEmbed = strrep(colorsEmbed, 'g', '2');
+            colorsEmbed = strrep(colorsEmbed, 'b', '3');
+            colorsEmbed = str2double(num2cell(char(colorsEmbed)));
+            if(colourscheme == 1)
+                for i = 1:H_blocks
+                    for j = 1:W_blocks
+                        img_block = clearImg((i*N+1)-N : (i*N), (j*N+1)-N : (j*N));
+                        ClearStegoPBDiff(end+1) = abs(img_block(1,2) - img_block(2,1));
+                    end
+                end
+            else
+                for x = 1:length(colorsEmbed)
+                    rgb = colorsEmbed(x);
+                    counter = 1;
+                    for i = 1:H_blocks
+                        for j = 1:W_blocks
+                            img_block = clearImg((i*N+1)-N : (i*N), (j*N+1)-N : (j*N),rgb);
+                            ClearStegoPBDiff(x, counter) = abs(img_block(1,2) - img_block(2,1));
+                            counter = counter + 1;
+                        end
+                    end
+                end
+            end
+        end
+
+        
+        
+        function PercentageDecreaseAnalysis(app, imagePath)
+            img = imread(imagePath);
+            app.InputImage.ImageSource = img;
+            img = double(img);
+            
+            %tic
+            %ClearStegoCoefDiff = StatisticsFor1ImageCoef(app, img, 4, true);
+            %CoefTime = toc
+            %tic
+            ClearStegoPBDiff = StatisticsFor1ImagePB(app, img, 4, true);
+            %PBTime = toc
+
+            %MakeHistoPercentageDifference(app, ClearStegoCoefDiff);            
+            MakeHistoPercentageDifference(app, ClearStegoPBDiff);
+        end
+
+        function MakeHistoPercentageDifference(app, ClearStegoDiff)
+            figur = figure('Name', "Гістограма процентної зміни при переході з у1 на у2 абсолютних різниць"); %"Гістограма модулів різниць коефіцієнтів швидкого перетворення Фур`є"
+            Indefinite = ClearStegoDiff;
+            
+            %ClearCD_edge, ClearCD_count
+            Indefinite_edge = [];
+            Indefinite_count = [];
+            
+            for i = 1:numel(Indefinite)
+                if(~ismember(Indefinite(i), Indefinite_edge))
+                    Indefinite_edge(end+1) = Indefinite(i);
+                    Indefinite_count(end+1) = sum(Indefinite == Indefinite_edge(end));
+                end
+            end
+            [maxNumber, maxIndex] = max(Indefinite_count);
+            IndEdgeCount = [;];
+            for i = 1:numel(Indefinite_edge)
+                IndEdgeCount(end+1, :) = [Indefinite_edge(i) Indefinite_count(i)];
+            end
+            IndEdgeCount = sortrows(IndEdgeCount, 1);
+            for i = 1:length(IndEdgeCount)
+                if i == 1
+                    continue;
+                elseif i+1 == length(IndEdgeCount)
+                    break;
+                end
+                IndEdgeCount(i-1,2) = 100 - round(IndEdgeCount(i-1,2)/IndEdgeCount(i, 2) * 100, 2);
+            end
+        
+            Indefinite_edge(:) = IndEdgeCount(:, 1:2:end);
+            Indefinite_count(:) = IndEdgeCount(:, 2:2:end);
+        
+            
+            bar(Indefinite_edge, Indefinite_count, 'FaceColor', 'red', 'EdgeColor', 'none', 'FaceAlpha', 0.5)
+            xlabel('Значення абсолютної різниці');
+            ylabel('Процентна зміна частоти зустрічання абсолютної різниці відносно наступного значення');
+        end
+        function MakeHistoPercentageDifferenceTXT(app, ClearStegoDiff, text)
+            figur = figure('Name', text); %"Гістограма модулів різниць коефіцієнтів швидкого перетворення Фур`є"
+            Indefinite = ClearStegoDiff;
+            
+            %ClearCD_edge, ClearCD_count
+            Indefinite_edge = [];
+            Indefinite_count = [];
+            
+            for i = 1:numel(Indefinite)
+                if(~ismember(Indefinite(i), Indefinite_edge))
+                    Indefinite_edge(end+1) = Indefinite(i);
+                    Indefinite_count(end+1) = sum(Indefinite == Indefinite_edge(end));
+                end
+            end
+            [maxNumber, maxIndex] = max(Indefinite_count);
+            IndEdgeCount = [;];
+            for i = 1:numel(Indefinite_edge)
+                IndEdgeCount(end+1, :) = [Indefinite_edge(i) Indefinite_count(i)];
+            end
+            IndEdgeCount = sortrows(IndEdgeCount, 1);
+            for i = 1:length(IndEdgeCount)
+                if i == 1
+                    continue;
+                elseif i+1 == length(IndEdgeCount)
+                    break;
+                end
+                IndEdgeCount(i-1,2) = 100 - round(IndEdgeCount(i-1,2)/IndEdgeCount(i, 2) * 100, 2);
+            end
+        
+            Indefinite_edge(:) = IndEdgeCount(:, 1:2:end);
+            Indefinite_count(:) = IndEdgeCount(:, 2:2:end);
+        
+            
+            bar(Indefinite_edge, Indefinite_count, 'FaceColor', 'red', 'EdgeColor', 'none', 'FaceAlpha', 0.5)
+            xlabel('Значення абсолютної різниці');
+            ylabel('Процентна зміна частоти зустрічання абсолютної різниці відносно наступного значення');
+        end
+
+
+
+
+
+        
+        function [detected, supposed_l]=MakeHistoPercentageDifferenceSA(app, ClearStegoDiff)
+            %figur = figure('Name', "Гістограма процентної зміни при переході з у1 на у2 абсолютних різниць"); %"Гістограма модулів різниць коефіцієнтів швидкого перетворення Фур`є"
+            Indefinite = ClearStegoDiff;
+            
+            %ClearCD_edge, ClearCD_count
+            Indefinite_edge = [];
+            Indefinite_count = [];
+            
+            for i = 1:numel(Indefinite)
+                if(~ismember(Indefinite(i), Indefinite_edge))
+                    Indefinite_edge(end+1) = Indefinite(i);
+                    Indefinite_count(end+1) = sum(Indefinite == Indefinite_edge(end));
+                end
+            end
+            %[maxNumber, maxIndex] = max(Indefinite_count);
+            IndEdgeCount = [;];
+            for i = 1:numel(Indefinite_edge)
+                IndEdgeCount(end+1, :) = [Indefinite_edge(i) Indefinite_count(i)];
+            end
+            IndEdgeCount = sortrows(IndEdgeCount, 1);
+            for i = 1:length(IndEdgeCount)
+                if i == 1
+                    continue;
+                elseif i+1 == length(IndEdgeCount)
+                    break;
+                end
+                IndEdgeCount(i-1,2) = 100 - round(IndEdgeCount(i-1,2)/IndEdgeCount(i, 2) * 100, 2);
+            end
+            
+            counterFlaggy3 = 0;
+            counterFlaggy4 = 0;
+            lessThan8 = false;
+            lessThan16 = false;
+            for i = 1:6
+                try
+                    tmp1 = IndEdgeCount(16,2);
+                catch
+                    lessThan16 = true;
+                end
+                try
+                    tmp1 = IndEdgeCount(8,2);
+                catch
+                    lessThan8 = true;
+                end
+                if(lessThan8 && lessThan16)
+                    detected = false;
+                    break;
+                end
+                if(~lessThan16)
+                    if(IndEdgeCount(16,2)<(-5 + IndEdgeCount(16-i, 2)))
+                        counterFlaggy4 = counterFlaggy4+1;
+                    end
+                end
+                if(~lessThan8)
+                    if(i <= 2)
+                        if(IndEdgeCount(8,2)<(-5 + IndEdgeCount(8-i, 2)))
+                            counterFlaggy3 = counterFlaggy3+1;
+                        end
+                    end
+                end
+            end
+            if(counterFlaggy3 >= 2)
+                detected = true;
+                supposed_l = 3;
+            elseif(counterFlaggy4 == 6)
+                detected = true;
+                supposed_l = 4;
+            else
+                detected = false;
+                supposed_l = 0;
+            end
+        
+            Indefinite_edge(:) = IndEdgeCount(:, 1:2:end);
+            Indefinite_count(:) = IndEdgeCount(:, 2:2:end);
+        
+            
+            %bar(Indefinite_edge, Indefinite_count, 'FaceColor', 'red', 'EdgeColor', 'none', 'FaceAlpha', 0.5)
+            %xlabel('Значення абсолютної різниці');
+            %ylabel('Процентна зміна частоти зустрічання абсолютної різниці відносно наступного значення');
+            
+        end
+        
+
+        function MakeAveragePercentDiffHisto(app, Indefinite_edge, Indefinite_count)
+            IndEdgeCount = [;];
+            for i = 1:numel(Indefinite_edge)
+                IndEdgeCount(end+1, :) = [Indefinite_edge(i) Indefinite_count(i)];
+            end
+            IndEdgeCount = sortrows(IndEdgeCount, 1);
+            for i = 1:length(IndEdgeCount)
+                if i == 1
+                    continue;
+                elseif i+1 == length(IndEdgeCount)
+                    break;
+                end
+                IndEdgeCount(i-1,2) = 100 - round(IndEdgeCount(i-1,2)/IndEdgeCount(i, 2) * 100, 2);
+            end
+            
+            Indefinite_edge(:) = IndEdgeCount(:, 1:2:end);
+            Indefinite_count(:) = IndEdgeCount(:, 2:2:end);
+        
+            figur = figure('Name', "Графік гістограми середніх значень процентів абсолютної різниці елементів 1.2 та 2.1 яскравості пікселів зображення"); 
+            bar(Indefinite_edge, Indefinite_count, 'FaceColor', 'red', 'EdgeColor', 'none', 'FaceAlpha', 0.5)
+            xlabel('Значення абсолютної різниці');
+            ylabel('Процентна зміна частоти зустрічання абсолютної різниці відносно наступного значення');
+        end
+
+
+        function [Indefinite_edgeMain, Indefinite_countMain] = MakeAverageHisto(app, imagesPath, amount)
+            Indefinite_edgeMain = [];
+            Indefinite_countMain = [];
+            
+            for x = 1:amount
+                img = double(imread(imagesPath(x)));
+                Indefinite = StatisticsFor1ImagePB(app, img, 4, true);
+
+                Indefinite_edge = [];
+                Indefinite_count = [];
+
+                for i = 1:numel(Indefinite)
+                    if(~ismember(Indefinite(i), Indefinite_edge))
+                        Indefinite_edge(end+1) = Indefinite(i);
+                        Indefinite_count(end+1) = sum(Indefinite == Indefinite_edge(end));
+                    end
+                end
+
+                for i = 1:numel(Indefinite_edge)
+                    if(isempty(Indefinite_edgeMain) && isempty(Indefinite_countMain))
+                        Indefinite_countMain = Indefinite_count;
+                        Indefinite_edgeMain = Indefinite_edge;
+                        break;
+                    end
+                    
+                    if(~ismember(Indefinite_edge(i), Indefinite_edgeMain))
+                        Indefinite_edgeMain(end+1) = Indefinite_edge(i);
+                        Indefinite_countMain(end+1) = Indefinite_count(i);
+                    end
+                    for j = 1:numel(Indefinite_edge)
+                        if(Indefinite_edge(j) == Indefinite_edgeMain(i))
+                            Indefinite_countMain(i) = Indefinite_countMain(i) + Indefinite_count(j);
+                            break;
+                        end
+                    end
+                end
+
+                if(x == amount)
+                    for i = 1:length(Indefinite_edgeMain)
+                        if(Indefinite_countMain(i)==0)
+                            continue;
+                        end
+                        Indefinite_countMain(i) = Indefinite_countMain(i)/amount;
+                    end
+                end
+            end
+
+            figur = figure('Name', "Графік гістограми середніх значень абсолютної різниці елементів 1.2 та 2.1 яскравості пікселів зображення"); %"Гістограма модулів різниць коефіцієнтів швидкого перетворення Фур`є"
+            
+            
+            bar(Indefinite_edgeMain, Indefinite_countMain, 'FaceColor', 'blue', 'EdgeColor', 'none', 'FaceAlpha', 0.5)
+            title('Графік гістограми середніх значень абсолютної різниці елементів 1.2 та 2.1 яскравості пікселів зображення');
+            %legend('Illustrative');
+            xlabel('Значення');
+            ylabel('Частота зустрічання');
+        end
+
+
+        
+        function [detected, supposed_l] = Steganoanalysis(app, imagePath)
+            img = imread(imagePath);
+            app.InputImage.ImageSource = img;
+            img = double(img);
+
+            if(strcmpi(app.DropDown.Value, "None"))
+                ClearStegoPBDiff = StatisticsFor1ImagePB(app, img, 4, true);
+                [detected, supposed_l] = MakeHistoPercentageDifferenceSA(app, ClearStegoPBDiff);
+            elseif(strcmpi(app.DropDown.Value, "One Test") || strcmp(app.DropDown.Value, "One"))
+                ClearStegoPBDiff = StatisticsFor1ImagePBForMatrix(app, img, 4, true);
+                for i = 1:height(ClearStegoPBDiff)
+                    [detected, supposed_l] = MakeHistoPercentageDifferenceSA(app, ClearStegoPBDiff(i, :));
+                    if(detected)
+                        break;
+                    end
+                end
+            else
+                ClearStegoPBDiff = StatisticsFor1ImagePB(app, img, 4, true);
+                [detected, supposed_l] = MakeHistoPercentageDifferenceSA(app, ClearStegoPBDiff);
+            end
+            %[detected, supposed_l] = MakeHistoPercentageDifferenceSA(app, ClearStegoPBDiff);
+        end
+
+        function SteganoanalysisOneFile(app, imagePath)
+            img = imread(imagePath);
+            app.InputImage.ImageSource = img;
+            img = double(img);
+
+            if(strcmpi(app.DropDown.Value, "None"))
+                ClearStegoPBDiff = StatisticsFor1ImagePB(app, img, 4, true);
+                [detected, supposed_l] = MakeHistoPercentageDifferenceSA(app, ClearStegoPBDiff);
+            elseif(strcmpi(app.DropDown.Value, "One Test") || strcmp(app.DropDown.Value, "One"))
+                ClearStegoPBDiff = StatisticsFor1ImagePBForMatrix(app, img, 4, true);
+                for i = 1:height(ClearStegoPBDiff)
+                    [detected, supposed_l] = MakeHistoPercentageDifferenceSA(app, ClearStegoPBDiff(i, :));
+                    if(detected)
+                        break;
+                    end
+                end
+            else
+                ClearStegoPBDiff = StatisticsFor1ImagePB(app, img, 4, true);
+                [detected, supposed_l] = MakeHistoPercentageDifferenceSA(app, ClearStegoPBDiff);
+            end
+            if(detected)
+                MakeHistoPercentageDifferenceTXT(app, ClearStegoPBDiff, string(join(["Стеганографію знайдено! l=",string(supposed_l)],"")))
+            else
+                MakeHistoPercentageDifferenceTXT(app, ClearStegoPBDiff, "Стеганографію не знайдено!")
+            end
+            %[detected, supposed_l] = MakeHistoPercentageDifferenceSA(app, ClearStegoPBDiff);
+        end
+
+        function ErrorHisto(app, imagePath, text)
+            img = imread(imagePath);
+            app.InputImage.ImageSource = img;
+            img = double(img);
+            if(strcmpi(app.DropDown.Value, "None"))
+                ClearStegoPBDiff = StatisticsFor1ImagePB(app, img, 4, true);
+                MakeHistoPercentageDifferenceTXT(app, ClearStegoPBDiff, text);
+            elseif(strcmpi(app.DropDown.Value, "One Test") || strcmp(app.DropDown.Value, "One"))
+                ClearStegoPBDiff = StatisticsFor1ImagePBForMatrix(app, img, 4, true);
+                for i = 1:height(ClearStegoPBDiff)
+                    MakeHistoPercentageDifferenceTXT(app, ClearStegoPBDiff(i, :), text);
+                end
+            else
+                ClearStegoPBDiff = StatisticsFor1ImagePB(app, img, 4, true);
+                MakeHistoPercentageDifferenceTXT(app, ClearStegoPBDiff, text);
+            end
+
+        end
+
+        function ShowErrors(app, FalseSupposed_L3Errors, FalseSupposed_L4Errors, FalsePositivesErrors, FalseNegativesErrors, TotalNumberImages)
+            errors = [FalseSupposed_L3Errors, FalseSupposed_L4Errors, FalsePositivesErrors, FalseNegativesErrors, TotalNumberImages];
+            %msgbox(string(join(["Total amount of images: ", string(TotalNumberImages)], "")), "Total Number of images");
+            figure;
+
+            bar(errors);
+            labels = {'Хибне l=3', 'Хибне l=4', 'Першого роду', 'Другого роду', 'Усього зображень'};
+            set(gca, 'XTickLabel', labels);
+            
+            title('Порівняння помилок');
+            xlabel('Тип помилок');
+            ylabel('Кількість помилок');
+        end
+
+
+
+
+        function SizeOfImage = GetImageSize(app, img)
+            [rows, columns, ~] = size(img);
+            SizeOfImage = join(string([rows, columns]), "x");
+        end
+        function AmOfBlocks = GetAmOfBlocks(app,img)
+            [rows, columns, ~] = size(img);
+            rows = floor(rows/2);
+            columns = floor(columns/2);
+            AmOfBlocks = rows*columns;
+        end
+    end
+    
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: OpenFileButton
+        function OpenFileButtonPushed(app, event)
+            img = OpenImage(app);
+        end
+
+        % Button pushed function: GetAIButton
+        function GetAIButtonPushed(app, event)
+            img = OpenImage(app);
+            [filename, path] = uigetfile ({'*.txt', 'Text Files (*.txt)'}, 'Select text file with sequence that was embeded');
+            path = fullfile(path, filename);
+            DecodeOneImageResearch(app, img, path)
+        end
+
+        % Button pushed function: EmbedButton
+        function EmbedButtonPushed(app, event)
+            EncodeOneImageResearch(app, string(0), app.ImageSource);
+            app.BandWidthEditField.Value = string(join(["4", string(app.AmOfBitsOfAIEditField.Value)], "/"));
+        end
+
+        % Button pushed function: ChooseContainerButton
+        function ChooseContainerButtonPushed(app, event)
+            img = OpenContainerImage(app);
+            try
+                img = imread(app.ImageSource);
+                app.ContainerLamp.Color = "green";
+                if(app.ContainerLamp.Color == app.StegomessageLamp.Color)
+                    app.StegoanalysisReadinessLamp.Color = [0 1 0];
+                else
+                    app.StegoanalysisReadinessLamp.Color = [0.85 0.85 0];
+                end
+            catch
+            end
+        end
+
+        % Button pushed function: ChooseSteganomessageButton
+        function ChooseSteganomessageButtonPushed(app, event)
+            img = OpenStegoImage(app);
+            try
+                img = imread(app.StegoMessageSource);
+                app.StegomessageLamp.Color = "green";
+                if(app.ContainerLamp.Color == app.StegomessageLamp.Color)
+                    app.StegoanalysisReadinessLamp.Color = [0 1 0];
+                else
+                    app.StegoanalysisReadinessLamp.Color = [0.85 0.85 0];
+                end
+            catch
+            end
+        end
+
+        % Button pushed function: RunSteganoanalysisButton
+        function RunSteganoanalysisButtonPushed(app, event)
+            if(isequal(app.StegoanalysisReadinessLamp.Color, [0 1 0]))
+                CheckDifferenceAbsesOfBothImages(app)
+            elseif(~isempty(app.ImageSource) || ~isempty(app.StegoMessageSource))
+                CheckDifferenceAbsesOfOneImage(app)
+                if(~isempty(app.ImageSource))
+                    SteganoanalysisOneFile(app, app.ImageSource);
+                else
+                    SteganoanalysisOneFile(app, app.StegoMessageSource);
+                end
+            end
+        end
+
+        % Button pushed function: ClearStegoanChoiceButton
+        function ClearStegoanChoiceButtonPushed(app, event)
+            app.StegoMessageSource = "";
+            app.ImageSource = "";
+            app.InputImage.ImageSource = "";
+            app.OutputImage.ImageSource = "";
+            app.StegoanalysisReadinessLamp.Color = [0.8 0.8 0.8];
+            app.ContainerLamp.Color = [0.8 0.8 0.8];
+            app.StegomessageLamp.Color = [0.8 0.8 0.8];
+        end
+
+        % Button pushed function: ChooseFolderStegoaButton
+        function ChooseFolderStegoaButtonPushed(app, event)
+            imagesPathList = GetImagesPaths(app);
+            %firstKindError, when clear is counted as stego 
+            FalsePositivesErrors = 0;
+            %localFPE = zeros(1, length(imagesPathList));
+            steganoFiles = string([]);
+    
+            %secondKindError, when stego is counted as clear
+            FalseNegativesErrors = 0;
+            %localFNE = zeros(1, length(imagesPathList));
+    
+            FalseSupposed_L3Errors = 0;
+            %localFSL3E = zeros(1, length(imagesPathList));
+            
+            FalseSupposed_L4Errors = 0;
+            %localFSL4E = zeros(1, length(imagesPathList));
+            
+
+            for i = 1:length(imagesPathList)
+                [detected, supposed_l] = Steganoanalysis(app, imagesPathList(i));
+
+                if(contains(app.DropDown.Value, "Test"))
+                    [~, filename, ~] = fileparts(imagesPathList(i));
+                    
+                    isstego_ = 'builtin_image';
+                    lis3_ = 'l is 3';
+                    lis4_ = 'l is 4';
+                    colorscheme_ = '[rgb]+';
+                    percents_ = '\d+ percentsEmbeded';
+                    
+                    isStego = ~isempty(regexp(filename, isstego_, 'once'));
+                    lis3 = ~isempty(regexp(filename, lis3_, 'once'));
+                    lis4 = ~isempty(regexp(filename, lis4_, 'once'));
+                    %colorscheme = regexp(filename, colorscheme_, 'once');
+                    %percentstxt = regexp(filename, percents_, 'once');
+    
+                    %First (clear as stego)
+                    if(isStego == false && detected == true)
+                        if(supposed_l == 3)
+                            FalseSupposed_L3Errors = FalseSupposed_L3Errors + 1;
+                            l_is = "3";
+                            %localFSL3E(i) = 1;
+                            msgbox(string(join(["Clear counterd as stego, supposed l = ", l_is],"")), "l guessed wrong");
+                        elseif (supposed_l == 4)
+                            FalseSupposed_L4Errors = FalseSupposed_L4Errors + 1;
+                            l_is = "4";
+                            %localFSL4E(i) = 1;
+                            msgbox(string(join(["Clear counterd as stego, supposed l = ", l_is],"")), "l guessed wrong");
+                        end
+                        FalsePositivesErrors = FalsePositivesErrors + 1;
+                        %localFPE(i) = 1;
+                        msgbox(string(join(["Clear counted as stego. ", imagesPathList(i)],"")), "FirstKindError");
+                        %ErrorHisto(app, imagesPathList(i), "Clear read as stego")
+
+                    %Second(stego as clear)
+                    elseif(isStego == true && detected == false)
+                        FalseNegativesErrors = FalseNegativesErrors + 1;
+                        %localFNE(i) = 1;
+                        msgbox(string(join(["Stego counted as clear. ", imagesPathList(i)],"")), "SecondKindError");
+                        %ErrorHisto(app, imagesPathList(i), "Stego read as clear")
+
+                    elseif(isStego == detected && detected == true)
+                        if(lis3 && supposed_l ~= 3)
+                            FalseSupposed_L4Errors = FalseSupposed_L4Errors + 1;
+                            l_is = "3";
+                            %localFSL3E(i) = 1;
+                            msgbox(string(join(["Пропускна здатність знайдена невірно: має бути ", l_is, ", а є ", string(supposed_l)],"")), "l guessed wrong");
+                        elseif (lis4 && supposed_l ~= 4)
+                            FalseSupposed_L3Errors = FalseSupposed_L3Errors + 1;
+                            l_is = "4";
+                            %localFSL4E(i) = 1;
+                            msgbox(string(join(["Пропускна здатність знайдена невірно: має бути ", l_is, ", а є ", string(supposed_l)],"")), "l guessed wrong");
+                        end
+                    end 
+                else
+                
+                    if(detected)
+                        ErrorHisto(app, imagesPathList(i), string(join(["Steganography in ",imagesPathList(i) " noticed, l=", string(supposed_l)],"")));
+                        steganoFiles(end+1) = imagesPathList(i);
+                    end
+                end
+            end
+            if(contains(app.DropDown.Value, "Test"))
+                TotalNumberImages = length(imagesPathList);
+                %FalsePositivesErrors = sum(localFPE);
+                %FalseNegativesErrors = sum(localFNE);
+                %FalseSupposed_L3Errors = sum(localFSL3E);
+                %FalseSupposed_L4Errors = sum(localFSL4E);
+                
+                ShowErrors(app, FalseSupposed_L3Errors, FalseSupposed_L4Errors, FalsePositivesErrors, FalseNegativesErrors, TotalNumberImages)
+            else
+                msgbox(string(join(["Знайдено ", string(length(steganoFiles)), " стеганоповідомлень."],"")));
+                %ShowResult(app, ...)
+            end
+            beep;
+        end
+
+        % Callback function
+        function AnalyzePercentsOfDecreaseButtonPushed(app, event)
+            [filename, path] = uigetfile ({'*.png;*.jpg;*.jpeg;*.tif', 'Image Files (*.png, *.jpg, *.jpeg, *.tif)'}, 'Select an Image File');
+            fullPath = fullfile(path, filename);
+            Steganoanalysis(app, fullPath)
+        end
+
+        % Button pushed function: AnalyzeDecreasePercentsButton
+        function AnalyzeDecreasePercentsButtonPushed(app, event)
+            [filename, path] = uigetfile ({'*.png;*.jpg;*.jpeg;*.tif', 'Image Files (*.png, *.jpg, *.jpeg, *.tif)'}, 'Select an Image File');
+            fullPath = fullfile(path, filename);
+            %PercentageDecreaseAnalysis(app, fullPath);
+            SteganoanalysisOneFile(app, fullPath)
+        end
+
+        % Button pushed function: EmbedMultipleButton
+        function EmbedMultipleButtonPushed(app, event)
+            imagesPathList = GetImagesPaths(app);
+            %counter = 0;
+            for i = 1:length(imagesPathList)
+               EncodeOneImageResearchMultiple(app, string(i), imagesPathList(i))
+            end
+
+%             for i = 1:50
+%                 EncodeOneImageResearchTMP(app, string(i), imagesPathList(i), 15);
+%                 counter = counter + 1;
+%                 if(counter == 100)
+%                     msgbox("Weeee, 100 embeded!")
+%                 elseif(counter == 300)
+%                     msgbox("Weeee, 300 embeded!")
+%                 elseif(counter == 500)
+%                     msgbox("Weeee, 500 embeded!")
+%                 elseif(mod(counter, 1000) == 0)
+%                     msgbox(string(join(["Weeee, ", string(counter), " embeded!"], "")));
+%                 end
+%             end
+% 
+%             for i = 1:50
+%                 EncodeOneImageResearchTMP(app, string(i), imagesPathList(i), 25);
+%                 counter = counter + 1;
+%                 if(counter == 100)
+%                     msgbox("Weeee, 100 embeded!")
+%                 elseif(counter == 300)
+%                     msgbox("Weeee, 300 embeded!")
+%                 elseif(counter == 500)
+%                     msgbox("Weeee, 500 embeded!")
+%                 elseif(mod(counter, 1000) == 0)
+%                     msgbox(string(join(["Weeee, ", string(counter), " embeded!"], "")));
+%                 end
+%             end
+%             counter = 0;
+%             for i = 1:50
+%                 EncodeOneImageResearchTMP(app, string(i), imagesPathList(i), 30);
+%                 counter = counter + 1;
+%                 if(counter == 100)
+%                     msgbox("Weeee, 100 embeded!")
+%                 elseif(counter == 300)
+%                     msgbox("Weeee, 300 embeded!")
+%                 elseif(counter == 500)
+%                     msgbox("Weeee, 500 embeded!")
+%                 elseif(mod(counter, 1000) == 0)
+%                     msgbox(string(join(["Weeee, ", string(counter), " embeded!"], "")));
+%                 end
+%             end
+%             counter = 0;
+%             for i = 1:50
+%                 EncodeOneImageResearchTMP(app, string(i), imagesPathList(i), 40);
+%                 counter = counter + 1;
+%                 if(counter == 100)
+%                     msgbox("Weeee, 100 embeded!")
+%                 elseif(counter == 300)
+%                     msgbox("Weeee, 300 embeded!")
+%                 elseif(counter == 500)
+%                     msgbox("Weeee, 500 embeded!")
+%                 elseif(mod(counter, 1000) == 0)
+%                     msgbox(string(join(["Weeee, ", string(counter), " embeded!"], "")));
+%                 end
+%             end
+%             counter = 0;
+%             for i = 1:50
+%                 EncodeOneImageResearchTMP(app, string(i), imagesPathList(i), 50);
+%                 counter = counter + 1;
+%                 if(counter == 100)
+%                     msgbox("Weeee, 100 embeded!")
+%                 elseif(counter == 300)
+%                     msgbox("Weeee, 300 embeded!")
+%                 elseif(counter == 500)
+%                     msgbox("Weeee, 500 embeded!")
+%                 elseif(mod(counter, 1000) == 0)
+%                     msgbox(string(join(["Weeee, ", string(counter), " embeded!"], "")));
+%                 end
+%             end
+%             counter = 0;
+%             for i = 1:50
+%                 EncodeOneImageResearchTMP(app, string(i), imagesPathList(i), 80);
+%                 counter = counter + 1;
+%                 if(counter == 100)
+%                     msgbox("Weeee, 100 embeded!")
+%                 elseif(counter == 300)
+%                     msgbox("Weeee, 300 embeded!")
+%                 elseif(counter == 500)
+%                     msgbox("Weeee, 500 embeded!")
+%                 elseif(mod(counter, 1000) == 0)
+%                     msgbox(string(join(["Weeee, ", string(counter), " embeded!"], "")));
+%                 end
+%             end
+%             counter = 0;
+%             for i = 1:2000
+%                 EncodeOneImageResearchTMP(app, string(i), imagesPathList(i), 45);
+%                 counter = counter + 1;
+%                 if(counter == 100)
+%                     msgbox("Weeee, 100 embeded!")
+%                 elseif(counter == 300)
+%                     msgbox("Weeee, 300 embeded!")
+%                 elseif(counter == 500)
+%                     msgbox("Weeee, 500 embeded!")
+%                 elseif(mod(counter, 1000) == 0)
+%                     msgbox(string(join(["Weeee, ", string(counter), " embeded!"], "")));
+%                 end
+%             end
+%             counter = 0;
+%             for i = 1:2000
+%                 EncodeOneImageResearchTMP(app, string(i), imagesPathList(i), 50);
+%                 counter = counter + 1;
+%                 if(counter == 100)
+%                     msgbox("Weeee, 100 embeded!")
+%                 elseif(counter == 300)
+%                     msgbox("Weeee, 300 embeded!")
+%                 elseif(counter == 500)
+%                     msgbox("Weeee, 500 embeded!")
+%                 elseif(mod(counter, 1000) == 0)
+%                     msgbox(string(join(["Weeee, ", string(counter), " embeded!"], "")));
+%                 end
+%             end
+%             counter = 0;
+%             for i = 1:2000
+%                 EncodeOneImageResearchTMP(app, string(i), imagesPathList(i), 60);
+%                 counter = counter + 1;
+%                 if(counter == 100)
+%                     msgbox("Weeee, 100 embeded!")
+%                 elseif(counter == 300)
+%                     msgbox("Weeee, 300 embeded!")
+%                 elseif(counter == 500)
+%                     msgbox("Weeee, 500 embeded!")
+%                 elseif(mod(counter, 1000) == 0)
+%                     msgbox(string(join(["Weeee, ", string(counter), " embeded!"], "")));
+%                 end
+%             end
+%             counter = 0;
+%             for i = 1:2000
+%                 EncodeOneImageResearchTMP(app, string(i), imagesPathList(i), 70);
+%                 counter = counter + 1;
+%                 if(counter == 100)
+%                     msgbox("Weeee, 100 embeded!")
+%                 elseif(counter == 300)
+%                     msgbox("Weeee, 300 embeded!")
+%                 elseif(counter == 500)
+%                     msgbox("Weeee, 500 embeded!")
+%                 elseif(mod(counter, 1000) == 0)
+%                     msgbox(string(join(["Weeee, ", string(counter), " embeded!"], "")));
+%                 end
+%             end
+%             counter = 0;
+%             for i = 1:2000
+%                 EncodeOneImageResearchTMP(app, string(i), imagesPathList(i), 80);
+%                 counter = counter + 1;
+%                 if(counter == 100)
+%                     msgbox("Weeee, 100 embeded!")
+%                 elseif(counter == 300)
+%                     msgbox("Weeee, 300 embeded!")
+%                 elseif(counter == 500)
+%                     msgbox("Weeee, 500 embeded!")
+%                 elseif(mod(counter, 1000) == 0)
+%                     msgbox(string(join(["Weeee, ", string(counter), " embeded!"], "")));
+%                 end
+%             end
+%             counter = 0;
+%             for i = 1:2000
+%                 EncodeOneImageResearchTMP(app, string(i), imagesPathList(i), 100);
+%                 counter = counter + 1;
+%                 if(counter == 100)
+%                     msgbox("Weeee, 100 embeded!")
+%                 elseif(counter == 300)
+%                     msgbox("Weeee, 300 embeded!")
+%                 elseif(counter == 500)
+%                     msgbox("Weeee, 500 embeded!")
+%                 elseif(mod(counter, 1000) == 0)
+%                     msgbox(string(join(["Weeee, ", string(counter), " embeded!"], "")));
+%                 end
+%             end
+        end
+
+        % Button pushed function: AnalyzeFolderDecreasePercentsButton
+        function AnalyzeFolderDecreasePercentsButtonPushed(app, event)
+            imagesPathList = GetImagesPaths(app);
+            [Indefinite_edge, Indefinite_count] = MakeAverageHisto(app, imagesPathList, length(imagesPathList));
+            MakeAveragePercentDiffHisto(app, Indefinite_edge, Indefinite_count);
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 787 774];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.UIFigure);
+            title(app.UIAxes, 'Title')
+            xlabel(app.UIAxes, 'X')
+            ylabel(app.UIAxes, 'Y')
+            zlabel(app.UIAxes, 'Z')
+            app.UIAxes.Position = [-370 803 2 2];
+
+            % Create Panel
+            app.Panel = uipanel(app.UIFigure);
+            app.Panel.Title = 'Дані про вхідне зображення';
+            app.Panel.Position = [5 116 257 236];
+
+            % Create GridLayout
+            app.GridLayout = uigridlayout(app.Panel);
+            app.GridLayout.ColumnWidth = {115, '1x'};
+            app.GridLayout.RowHeight = {'1x', '1x', '1x', '1x'};
+
+            % Create Label_3
+            app.Label_3 = uilabel(app.GridLayout);
+            app.Label_3.HorizontalAlignment = 'center';
+            app.Label_3.Layout.Row = 1;
+            app.Label_3.Layout.Column = 1;
+            app.Label_3.Text = 'Розмір зображення';
+
+            % Create ImageSizeEditField
+            app.ImageSizeEditField = uieditfield(app.GridLayout, 'text');
+            app.ImageSizeEditField.Editable = 'off';
+            app.ImageSizeEditField.HorizontalAlignment = 'center';
+            app.ImageSizeEditField.Enable = 'off';
+            app.ImageSizeEditField.Placeholder = '0x0';
+            app.ImageSizeEditField.Layout.Row = 1;
+            app.ImageSizeEditField.Layout.Column = 2;
+
+            % Create Label_4
+            app.Label_4 = uilabel(app.GridLayout);
+            app.Label_4.HorizontalAlignment = 'center';
+            app.Label_4.Layout.Row = 2;
+            app.Label_4.Layout.Column = 1;
+            app.Label_4.Text = 'Кількість блоків 2х2';
+
+            % Create AmountOfBlocksForAIEditField
+            app.AmountOfBlocksForAIEditField = uieditfield(app.GridLayout, 'text');
+            app.AmountOfBlocksForAIEditField.Editable = 'off';
+            app.AmountOfBlocksForAIEditField.HorizontalAlignment = 'center';
+            app.AmountOfBlocksForAIEditField.Enable = 'off';
+            app.AmountOfBlocksForAIEditField.Placeholder = '0';
+            app.AmountOfBlocksForAIEditField.Layout.Row = 2;
+            app.AmountOfBlocksForAIEditField.Layout.Column = 2;
+
+            % Create EditField_3Label
+            app.EditField_3Label = uilabel(app.GridLayout);
+            app.EditField_3Label.HorizontalAlignment = 'center';
+            app.EditField_3Label.Layout.Row = 3;
+            app.EditField_3Label.Layout.Column = 1;
+            app.EditField_3Label.Text = 'Розмір файлу';
+
+            % Create FileSizeEditField
+            app.FileSizeEditField = uieditfield(app.GridLayout, 'text');
+            app.FileSizeEditField.Editable = 'off';
+            app.FileSizeEditField.HorizontalAlignment = 'center';
+            app.FileSizeEditField.Enable = 'off';
+            app.FileSizeEditField.Placeholder = '0';
+            app.FileSizeEditField.Layout.Row = 3;
+            app.FileSizeEditField.Layout.Column = 2;
+
+            % Create Label_5
+            app.Label_5 = uilabel(app.GridLayout);
+            app.Label_5.HorizontalAlignment = 'center';
+            app.Label_5.Layout.Row = 4;
+            app.Label_5.Layout.Column = 1;
+            app.Label_5.Text = 'Розширення файлу';
+
+            % Create FileExtensionEditField
+            app.FileExtensionEditField = uieditfield(app.GridLayout, 'text');
+            app.FileExtensionEditField.Editable = 'off';
+            app.FileExtensionEditField.HorizontalAlignment = 'center';
+            app.FileExtensionEditField.Enable = 'off';
+            app.FileExtensionEditField.Placeholder = '.png or .tif';
+            app.FileExtensionEditField.Layout.Row = 4;
+            app.FileExtensionEditField.Layout.Column = 2;
+
+            % Create InputImage
+            app.InputImage = uiimage(app.UIFigure);
+            app.InputImage.Position = [7 365 363 362];
+
+            % Create OpenFileButton
+            app.OpenFileButton = uibutton(app.UIFigure, 'push');
+            app.OpenFileButton.ButtonPushedFcn = createCallbackFcn(app, @OpenFileButtonPushed, true);
+            app.OpenFileButton.Position = [65 38 127 23];
+            app.OpenFileButton.Text = 'Обрати зображення';
+
+            % Create GetAIButton
+            app.GetAIButton = uibutton(app.UIFigure, 'push');
+            app.GetAIButton.ButtonPushedFcn = createCallbackFcn(app, @GetAIButtonPushed, true);
+            app.GetAIButton.Position = [407 38 100 23];
+            app.GetAIButton.Text = 'Видобути';
+
+            % Create EmbedButton
+            app.EmbedButton = uibutton(app.UIFigure, 'push');
+            app.EmbedButton.ButtonPushedFcn = createCallbackFcn(app, @EmbedButtonPushed, true);
+            app.EmbedButton.Position = [281 38 100 23];
+            app.EmbedButton.Text = 'Вбудувати';
+
+            % Create OutputImage
+            app.OutputImage = uiimage(app.UIFigure);
+            app.OutputImage.Position = [377 365 363 362];
+
+            % Create Label
+            app.Label = uilabel(app.UIFigure);
+            app.Label.Position = [102 740 179 22];
+            app.Label.Text = 'Вхідне або обране зображення';
+
+            % Create Label_2
+            app.Label_2 = uilabel(app.UIFigure);
+            app.Label_2.Position = [500 740 119 22];
+            app.Label_2.Text = 'Вихідне зображення';
+
+            % Create Panel_2
+            app.Panel_2 = uipanel(app.UIFigure);
+            app.Panel_2.Title = 'Стеганографія';
+            app.Panel_2.Position = [266 70 257 282];
+
+            % Create GridLayout_2
+            app.GridLayout_2 = uigridlayout(app.Panel_2);
+            app.GridLayout_2.ColumnWidth = {'2x', '1x'};
+            app.GridLayout_2.RowHeight = {'1x', '1x', '1x', '1x', '1x', '1x'};
+
+            % Create EditField_5Label
+            app.EditField_5Label = uilabel(app.GridLayout_2);
+            app.EditField_5Label.HorizontalAlignment = 'center';
+            app.EditField_5Label.Layout.Row = 5;
+            app.EditField_5Label.Layout.Column = 1;
+            app.EditField_5Label.Text = 'Розмір зображення';
+
+            % Create ImageSizeEditFieldSteg
+            app.ImageSizeEditFieldSteg = uieditfield(app.GridLayout_2, 'text');
+            app.ImageSizeEditFieldSteg.Editable = 'off';
+            app.ImageSizeEditFieldSteg.HorizontalAlignment = 'center';
+            app.ImageSizeEditFieldSteg.Enable = 'off';
+            app.ImageSizeEditFieldSteg.Placeholder = '0x0';
+            app.ImageSizeEditFieldSteg.Layout.Row = 5;
+            app.ImageSizeEditFieldSteg.Layout.Column = 2;
+
+            % Create EditField_7Label
+            app.EditField_7Label = uilabel(app.GridLayout_2);
+            app.EditField_7Label.HorizontalAlignment = 'center';
+            app.EditField_7Label.Layout.Row = 6;
+            app.EditField_7Label.Layout.Column = 1;
+            app.EditField_7Label.Text = 'Розмір файлу';
+
+            % Create FileSizeEditFieldSteg
+            app.FileSizeEditFieldSteg = uieditfield(app.GridLayout_2, 'text');
+            app.FileSizeEditFieldSteg.Editable = 'off';
+            app.FileSizeEditFieldSteg.HorizontalAlignment = 'center';
+            app.FileSizeEditFieldSteg.Enable = 'off';
+            app.FileSizeEditFieldSteg.Placeholder = '0';
+            app.FileSizeEditFieldSteg.Layout.Row = 6;
+            app.FileSizeEditFieldSteg.Layout.Column = 2;
+
+            % Create Label_6
+            app.Label_6 = uilabel(app.GridLayout_2);
+            app.Label_6.HorizontalAlignment = 'center';
+            app.Label_6.Layout.Row = 1;
+            app.Label_6.Layout.Column = 1;
+            app.Label_6.Text = 'Кількість біт що вбудовують';
+
+            % Create AmOfBitsOfAIEditField
+            app.AmOfBitsOfAIEditField = uieditfield(app.GridLayout_2, 'text');
+            app.AmOfBitsOfAIEditField.HorizontalAlignment = 'center';
+            app.AmOfBitsOfAIEditField.Placeholder = '0 < x < 6';
+            app.AmOfBitsOfAIEditField.Layout.Row = 1;
+            app.AmOfBitsOfAIEditField.Layout.Column = 2;
+            app.AmOfBitsOfAIEditField.Value = '4';
+
+            % Create EditField_14Label_2
+            app.EditField_14Label_2 = uilabel(app.GridLayout_2);
+            app.EditField_14Label_2.HorizontalAlignment = 'center';
+            app.EditField_14Label_2.Layout.Row = 3;
+            app.EditField_14Label_2.Layout.Column = 1;
+            app.EditField_14Label_2.Text = 'Процент заповнення контейнера';
+
+            % Create Label_8
+            app.Label_8 = uilabel(app.GridLayout_2);
+            app.Label_8.HorizontalAlignment = 'center';
+            app.Label_8.Layout.Row = 4;
+            app.Label_8.Layout.Column = 1;
+            app.Label_8.Text = 'ПС каналу (біт/п.)';
+
+            % Create BandWidthEditField
+            app.BandWidthEditField = uieditfield(app.GridLayout_2, 'text');
+            app.BandWidthEditField.Editable = 'off';
+            app.BandWidthEditField.HorizontalAlignment = 'center';
+            app.BandWidthEditField.Enable = 'off';
+            app.BandWidthEditField.Layout.Row = 4;
+            app.BandWidthEditField.Layout.Column = 2;
+            app.BandWidthEditField.Value = '0';
+
+            % Create Label_9
+            app.Label_9 = uilabel(app.GridLayout_2);
+            app.Label_9.HorizontalAlignment = 'right';
+            app.Label_9.Layout.Row = 2;
+            app.Label_9.Layout.Column = 1;
+            app.Label_9.Text = 'Вбудова у кольорові матриці';
+
+            % Create EmbedInColorMatrixesEditField
+            app.EmbedInColorMatrixesEditField = uieditfield(app.GridLayout_2, 'text');
+            app.EmbedInColorMatrixesEditField.HorizontalAlignment = 'center';
+            app.EmbedInColorMatrixesEditField.Layout.Row = 2;
+            app.EmbedInColorMatrixesEditField.Layout.Column = 2;
+            app.EmbedInColorMatrixesEditField.Value = 'rgb';
+
+            % Create EmbedingPercentageEditField
+            app.EmbedingPercentageEditField = uieditfield(app.GridLayout_2, 'numeric');
+            app.EmbedingPercentageEditField.Limits = [2 100];
+            app.EmbedingPercentageEditField.HorizontalAlignment = 'center';
+            app.EmbedingPercentageEditField.Layout.Row = 3;
+            app.EmbedingPercentageEditField.Layout.Column = 2;
+            app.EmbedingPercentageEditField.Value = 30;
+
+            % Create Panel_3
+            app.Panel_3 = uipanel(app.UIFigure);
+            app.Panel_3.Title = 'Стеганоаналіз';
+            app.Panel_3.Position = [527 70 257 282];
+
+            % Create GridLayout_3
+            app.GridLayout_3 = uigridlayout(app.Panel_3);
+            app.GridLayout_3.ColumnWidth = {'1.5x', '1x'};
+            app.GridLayout_3.RowHeight = {'1x', '1x', '1x', '1x', '1x'};
+
+            % Create ContainerLamp
+            app.ContainerLamp = uilamp(app.GridLayout_3);
+            app.ContainerLamp.Layout.Row = 1;
+            app.ContainerLamp.Layout.Column = 2;
+            app.ContainerLamp.Color = [0.8 0.8 0.8];
+
+            % Create StegomessageLamp
+            app.StegomessageLamp = uilamp(app.GridLayout_3);
+            app.StegomessageLamp.Layout.Row = 2;
+            app.StegomessageLamp.Layout.Column = 2;
+            app.StegomessageLamp.Color = [0.8 0.8 0.8];
+
+            % Create ChooseContainerButton
+            app.ChooseContainerButton = uibutton(app.GridLayout_3, 'push');
+            app.ChooseContainerButton.ButtonPushedFcn = createCallbackFcn(app, @ChooseContainerButtonPushed, true);
+            app.ChooseContainerButton.Layout.Row = 1;
+            app.ChooseContainerButton.Layout.Column = 1;
+            app.ChooseContainerButton.Text = 'Обрати контейнер';
+
+            % Create ChooseSteganomessageButton
+            app.ChooseSteganomessageButton = uibutton(app.GridLayout_3, 'push');
+            app.ChooseSteganomessageButton.ButtonPushedFcn = createCallbackFcn(app, @ChooseSteganomessageButtonPushed, true);
+            app.ChooseSteganomessageButton.Layout.Row = 2;
+            app.ChooseSteganomessageButton.Layout.Column = 1;
+            app.ChooseSteganomessageButton.Text = 'Стеганоповідомлення';
+
+            % Create ClearStegoanChoiceButton
+            app.ClearStegoanChoiceButton = uibutton(app.GridLayout_3, 'push');
+            app.ClearStegoanChoiceButton.ButtonPushedFcn = createCallbackFcn(app, @ClearStegoanChoiceButtonPushed, true);
+            app.ClearStegoanChoiceButton.Layout.Row = 3;
+            app.ClearStegoanChoiceButton.Layout.Column = 1;
+            app.ClearStegoanChoiceButton.Text = 'Прибрати вибір';
+
+            % Create ChooseFolderStegoaButton
+            app.ChooseFolderStegoaButton = uibutton(app.GridLayout_3, 'push');
+            app.ChooseFolderStegoaButton.ButtonPushedFcn = createCallbackFcn(app, @ChooseFolderStegoaButtonPushed, true);
+            app.ChooseFolderStegoaButton.Layout.Row = 4;
+            app.ChooseFolderStegoaButton.Layout.Column = 1;
+            app.ChooseFolderStegoaButton.Text = 'Обрати папку';
+
+            % Create DropDown
+            app.DropDown = uidropdown(app.GridLayout_3);
+            app.DropDown.Items = {'None', 'RGB Test', 'One Test', 'RGB', 'One'};
+            app.DropDown.Layout.Row = 4;
+            app.DropDown.Layout.Column = 2;
+            app.DropDown.Value = 'RGB Test';
+
+            % Create AnalyzeFolderDecreasePercentsButton
+            app.AnalyzeFolderDecreasePercentsButton = uibutton(app.GridLayout_3, 'push');
+            app.AnalyzeFolderDecreasePercentsButton.ButtonPushedFcn = createCallbackFcn(app, @AnalyzeFolderDecreasePercentsButtonPushed, true);
+            app.AnalyzeFolderDecreasePercentsButton.Layout.Row = 5;
+            app.AnalyzeFolderDecreasePercentsButton.Layout.Column = [1 2];
+            app.AnalyzeFolderDecreasePercentsButton.Text = 'Гістограма в процентах: Обрати папку';
+
+            % Create RunSteganoanalysisButton
+            app.RunSteganoanalysisButton = uibutton(app.UIFigure, 'push');
+            app.RunSteganoanalysisButton.ButtonPushedFcn = createCallbackFcn(app, @RunSteganoanalysisButtonPushed, true);
+            app.RunSteganoanalysisButton.Position = [562 41 115 23];
+            app.RunSteganoanalysisButton.Text = 'Стеганоаналіз';
+
+            % Create StegoanalysisReadinessLamp
+            app.StegoanalysisReadinessLamp = uilamp(app.UIFigure);
+            app.StegoanalysisReadinessLamp.Position = [684 41 23 23];
+            app.StegoanalysisReadinessLamp.Color = [0.6353 0.0784 0.1843];
+
+            % Create AnalyzeDecreasePercentsButton
+            app.AnalyzeDecreasePercentsButton = uibutton(app.UIFigure, 'push');
+            app.AnalyzeDecreasePercentsButton.ButtonPushedFcn = createCallbackFcn(app, @AnalyzeDecreasePercentsButtonPushed, true);
+            app.AnalyzeDecreasePercentsButton.Position = [521 8 249 23];
+            app.AnalyzeDecreasePercentsButton.Text = 'Аналізувати гістограму в процентах зміни';
+
+            % Create EmbedMultipleButton
+            app.EmbedMultipleButton = uibutton(app.UIFigure, 'push');
+            app.EmbedMultipleButton.ButtonPushedFcn = createCallbackFcn(app, @EmbedMultipleButtonPushed, true);
+            app.EmbedMultipleButton.Position = [301 8 188 23];
+            app.EmbedMultipleButton.Text = 'Вбудувати у зображення папки';
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = ResearchApp
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
